@@ -1,0 +1,21 @@
+# Unreal Engine generated build data and local caches
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+Plugins/*/Binaries/
+Plugins/*/Intermediate/
+
+# IDE-specific local settings and generated project files
+.idea/
+.vs/
+*.sln
+*.suo
+*.VC.db
+*.VC.opendb
+*.xcodeproj
+*.xcworkspace
+
+# Operating-system files
+.DS_Store
+Thumbs.db
