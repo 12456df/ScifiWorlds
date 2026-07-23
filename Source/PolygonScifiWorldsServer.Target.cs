@@ -3,11 +3,11 @@
 using UnrealBuildTool;
 using System.Collections.Generic;
 
-public class PolygonScifiWorldsEditorTarget : TargetRules
+public class PolygonScifiWorldsServerTarget : TargetRules
 {
-	public PolygonScifiWorldsEditorTarget(TargetInfo Target) : base(Target)
+	public PolygonScifiWorldsServerTarget(TargetInfo Target) : base(Target)
 	{
-		Type = TargetType.Editor;
+		Type = TargetType.Server;
 		DefaultBuildSettings = BuildSettingsVersion.V6;
 		IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_7;
 
