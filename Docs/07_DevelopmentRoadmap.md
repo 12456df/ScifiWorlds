@@ -1,8 +1,8 @@
 # ScifiWorlds 模块开发路线图
 
 **状态：** Approved（Baseline v1）
-**最后更新：** 2026-07-20
-**当前模块：** M01 — 工程与构建基础（待开始）
+**最后更新：** 2026-07-23
+**当前模块：** M02 — 多人 Gameplay Framework（待开始）
 
 ## 目的
 
@@ -17,7 +17,7 @@
 | ID | 模块 | 主要依赖 | 完成门槛 | 状态 | 建议 Commit |
 |---|---|---|---|---|---|
 | M00 | 文档与规范基线 | 无 | Charter、TDD、工程规范、开发路线图和 UE 项目上下文完成一致性检查 | Completed | `docs: establish project planning and technical standards` |
-| M01 | 工程与构建基础 | M00 | 确定技术工程名；配置 GAS、Enhanced Input；Game、Editor、Server Target 均可编译；DS 可启动 | Not Started | `build: establish project and dedicated server foundation` |
+| M01 | 工程与构建基础 | M00 | 确定技术工程名；配置 GAS、Enhanced Input；Game、Editor、Server Target 均可编译；DS 可启动 | Completed | `build: establish project and dedicated server foundation` |
 | M02 | 多人 Gameplay Framework | M01 | GameMode、GameState、PlayerController、PlayerState、Character 和队伍基础完成；客户端可加入 DS、分队、生成和退出 | Not Started | `feat: establish multiplayer gameplay framework` |
 | M03 | GAS 核心框架 | M02 | ASC、AttributeSet、Ability/Effect 基类、Native Gameplay Tags 与双端初始化完成；复制和重生后重新绑定正确 | Not Started | `feat: establish multiplayer GAS foundation` |
 | M04 | 输入、移动与相机 | M02、M03 | Enhanced Input、第三人称移动、镜头和瞄准完成；DS 下移动复制与远端表现正确 | Not Started | `feat: add networked character controls` |
@@ -74,6 +74,7 @@ M00 的目标是建立足以安全开始开发的功能方向与技术规范，�
 | 模块 | Commit | 完成日期 | 验证摘要 |
 |---|---|---|---|
 | M00 | `milestone/m00` | 2026-07-20 | 功能方向、GAS/多人/DS 技术规范、独立开发流程、路线图、SSOT 与私有仓库安全策略完成审计 |
+| M01 | `milestone/m01` | 2026-07-23 | UE 5.7.4 源码引擎、GAS/Enhanced Input、Game/Editor/Server Target、WindowsServer Cook/Stage、DS UDP 7777 与本地客户端连通性均已验证；参数化脚本覆盖构建、Cook 与本地 DS 启动。 |
 
 ## 路线图变更规则
 

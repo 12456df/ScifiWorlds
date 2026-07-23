@@ -1,10 +1,10 @@
 # UE Project Context
 
-*Last updated: 2026-07-20*
+*Last updated: 2026-07-23*
 
 ## Engine & Project Overview
 
-**Engine version:** Unreal Engine 5.7（安装类型待确认）
+**Engine version:** Unreal Engine 5.7.4 源码构建（`5.7.4-release`，commit `260bb2e1c5610b31c63a36206eedd289409c5f11`）
 **Product name:** ScifiWorlds
 **Technical project/module name:** PolygonScifiWorlds
 **Description:** 科幻题材多人联机第三人称技能射击推塔游戏，具有差异化角色射击、专属技能、技能导向装备构筑、三路小兵推进和水晶胜利目标。
@@ -24,20 +24,20 @@
 **Key dependencies:**
 
 - **Public:** Core、CoreUObject、Engine、InputCore
-- **Private:** None
+- **Private:** GameplayAbilities、GameplayTags、GameplayTasks、EnhancedInput
 - **Build settings:** BuildSettingsVersion.V6
-- **Targets:** `PolygonScifiWorlds`（Game）、`PolygonScifiWorldsEditor`（Editor）
+- **Targets:** `PolygonScifiWorlds`（Game）、`PolygonScifiWorldsEditor`（Editor）、`PolygonScifiWorldsServer`（Dedicated Server）
 
 ## Plugin Dependencies
 
 **Enabled project plugins:**
 
-- `PythonScriptPlugin` — 用途待确认
-- `BpGeneratorUltimate` — Fab 插件，用途与生产依赖程度待确认
+- `PythonScriptPlugin` — 仅限 Editor Target，避免形成 Server Runtime 依赖
+- `BpGeneratorUltimate` — Fab 已购插件，已安装到本机源码引擎；仅含 Editor 模块，不进入 Game/Server Runtime，原始内容不纳入项目 Git 仓库
+- `GameplayAbilities` — GAS Runtime 插件，已显式启用
+- `EnhancedInput` — Enhanced Input Runtime 插件，已显式启用
 
-**Selected but not yet configured:**
-
-- `GameplayAbilities` / `GameplayTags` / `GameplayTasks` — 项目已确定采用 GAS；插件与模块依赖尚未落地
+**Selected but not yet configured:** None.
 
 **Custom project plugins:** None detected.
 
@@ -82,11 +82,18 @@
 
 ## Build Configuration
 
-**Build targets:** Game、Editor；Dedicated Server target planned
+### M01 Validation (2026-07-23)
+
+- Development Editor, Game, and Dedicated Server targets built successfully from the UE 5.7.4 source build.
+- The WindowsServer archive was built, cooked, staged, and archived outside the repository.
+- The staged Dedicated Server loaded `/Game/PolygonSciFiWorlds/Maps/Demo_BlackMarket`, listened on UDP 7777, and accepted a local client connection.
+- `Scripts/Build/BuildTargets.ps1`, `Scripts/Build/CookServer.ps1`, and `Scripts/Run/StartLocalDS.ps1` provide parameterized local build, cook, and DS-start entry points.
+
+**Build targets:** Game、Editor、Dedicated Server；`PolygonScifiWorldsEditor Development Win64` 已通过源码引擎编译（2026-07-23），Server Target 已创建并通过项目文件生成验证
 **Custom macros / flags:** None detected.
 **Third-party C++ libraries:** None detected.
 **Platform-specific code:** None detected.
-**Engine modifications:** TBD; no project-level evidence of a custom engine fork.
+**Engine modifications:** 官方 `5.7.4-release` 源码基线；本机额外安装 `BpGeneratorUltimate` Editor 插件，未修改引擎源码。
 **Networking goal:** Multiplayer, server-authoritative, with a configurable and playable Dedicated Server demo.
 
 ## Technical Reference Policy
