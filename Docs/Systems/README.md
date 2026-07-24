@@ -17,3 +17,4 @@
 | 系统 | 文档 | 负责人 | 状态 |
 |---|---|---|---|
 | M01 工程与构建基础工作清单 | [M01_ProjectBuildFoundation_Checklist.md](M01_ProjectBuildFoundation_Checklist.md) | `12456df` | Approved |
+| M02 多人 Gameplay Framework | [M02_MultiplayerGameplayFramework.md](M02_MultiplayerGameplayFramework.md) | `12456df` | Approved |

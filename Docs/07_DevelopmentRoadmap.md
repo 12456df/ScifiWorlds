@@ -1,8 +1,8 @@
 # ScifiWorlds 模块开发路线图
 
 **状态：** Approved（Baseline v1）
-**最后更新：** 2026-07-23
-**当前模块：** M02 — 多人 Gameplay Framework（待开始）
+**最后更新：** 2026-07-24
+**当前模块：** M03 — GAS 核心框架（待开始）
 
 ## 目的
 
@@ -18,7 +18,7 @@
 |---|---|---|---|---|---|
 | M00 | 文档与规范基线 | 无 | Charter、TDD、工程规范、开发路线图和 UE 项目上下文完成一致性检查 | Completed | `docs: establish project planning and technical standards` |
 | M01 | 工程与构建基础 | M00 | 确定技术工程名；配置 GAS、Enhanced Input；Game、Editor、Server Target 均可编译；DS 可启动 | Completed | `build: establish project and dedicated server foundation` |
-| M02 | 多人 Gameplay Framework | M01 | GameMode、GameState、PlayerController、PlayerState、Character 和队伍基础完成；客户端可加入 DS、分队、生成和退出 | Not Started | `feat: establish multiplayer gameplay framework` |
+| M02 | 多人 Gameplay Framework | M01 | GameMode、GameState、PlayerController、PlayerState、Character 和队伍基础完成；客户端可加入 DS、分队、生成和退出 | Completed | `feat: establish multiplayer gameplay framework` |
 | M03 | GAS 核心框架 | M02 | ASC、AttributeSet、Ability/Effect 基类、Native Gameplay Tags 与双端初始化完成；复制和重生后重新绑定正确 | Not Started | `feat: establish multiplayer GAS foundation` |
 | M04 | 输入、移动与相机 | M02、M03 | Enhanced Input、第三人称移动、镜头和瞄准完成；DS 下移动复制与远端表现正确 | Not Started | `feat: add networked character controls` |
 | M05 | 战斗生命循环 | M03、M04 | 队伍关系、伤害、生命、死亡、重生和临时无敌状态由服务器权威运行并正确复制 | Not Started | `feat: add combat lifecycle` |

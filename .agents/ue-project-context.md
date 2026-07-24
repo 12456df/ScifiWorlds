@@ -1,6 +1,6 @@
 # UE Project Context
 
-*Last updated: 2026-07-23*
+*Last updated: 2026-07-24*
 
 ## Engine & Project Overview
 
@@ -57,10 +57,10 @@
 
 **Gameplay framework:**
 
-- GameMode: TBD
-- GameState: TBD
-- PlayerController: TBD
-- PlayerState: TBD
+- GameMode: `ASWGameMode`
+- GameState: `ASWGameState`
+- PlayerController: `ASWPlayerController`
+- PlayerState: `ASWPlayerState`
 - Pawn / Character: `ASWCharacter_Base`
 
 **Custom subsystems:** None implemented/detected.
@@ -81,6 +81,12 @@
 - Defensive objectives and team crystals
 
 ## Build Configuration
+
+### M02 Validation (2026-07-24)
+
+- Development Editor、Game 和 Dedicated Server Target 均已构建验证。
+- 已完成 Dedicated Server + 两客户端的加入、TeamA/TeamB 分队、带标签出生、TeamId 复制、队伍人数查询和退出状态更新验证。
+- 比赛地图使用 `APlayerStart::PlayerStartTag` 的 `TeamA` / `TeamB` 标签；`ASWGameMode` 是服务器唯一的分队与出生点选择权威。
 
 ### M01 Validation (2026-07-23)
 
