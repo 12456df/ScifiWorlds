@@ -3,6 +3,8 @@
 #include "GameMode/SWGameMode.h"
 
 #include "Character/SWCharacter_Base.h"
+#include "Character/SWCharacter_Player.h"
+#include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameState/SWGameState.h"
 #include "GameFramework/PlayerStart.h"
@@ -10,13 +12,28 @@
 #include "Player/SWPlayerController.h"
 #include "Player/SWPlayerState.h"
 
+namespace
+{
+	bool IsPIEWorld(const UWorld* World)
+	{
+		return World && World->WorldType == EWorldType::PIE;
+	}
+
+	ESWTeamId SelectBalancedPIETeam(const ASWGameState& GameState)
+	{
+		return GameState.GetTeamPlayerCount(ESWTeamId::TeamA) <= GameState.GetTeamPlayerCount(ESWTeamId::TeamB)
+			? ESWTeamId::TeamA
+			: ESWTeamId::TeamB;
+	}
+}
+
 ASWGameMode::ASWGameMode()
 {
 	// 比赛由准备期结束后的服务器显式启动，而不是在首名玩家进入时立即开始。
 	bDelayedStart = true;
 
 	// 统一注册 M02 的 Gameplay Framework 类型。
-	DefaultPawnClass = ASWCharacter_Base::StaticClass();
+	DefaultPawnClass = ASWCharacter_Player::StaticClass();
 	GameStateClass = ASWGameState::StaticClass();
 	PlayerControllerClass = ASWPlayerController::StaticClass();
 	PlayerStateClass = ASWPlayerState::StaticClass();
@@ -84,23 +101,31 @@ FString ASWGameMode::InitNewPlayer(APlayerController* NewPlayerController, const
 
 	const FString& Options, const FString& Portal)
 {
-	// M02 不接受比赛正式开始后的新对局玩家；观战与重连规则留待后续模块定义。
-	if (GetMatchState() != MatchState::WaitingToStart)
+	const bool bIsPIE = IsPIEWorld(GetWorld());
+
+	// 打包版本保持正式对局规则；PIE 允许在开局后加入，以避免编辑器多客户端启动时序干扰快速验证。
+	if (!bIsPIE && GetMatchState() != MatchState::WaitingToStart)
 	{
 		return TEXT("比赛已开始，无法加入。");
 	}
 
 	ESWTeamId RequestedTeamId = ESWTeamId::None;
-	if (!TryParseRequestedTeamId(Options, RequestedTeamId))
-	{
-		return TEXT("请选择有效阵营。");
-	}
 
 	ASWGameState* SWGameState = GetGameState<ASWGameState>();
 	ASWPlayerState* SWPlayerState = NewPlayerController ? NewPlayerController->GetPlayerState<ASWPlayerState>() : nullptr;
 	if (!SWGameState || !SWPlayerState)
 	{
 		return TEXT("无法加入该对局。");
+	}
+
+	if (bIsPIE)
+	{
+		// PIE 不依赖每个客户端各自的 URL 参数；服务器按当前人数平衡分配队伍。
+		RequestedTeamId = SelectBalancedPIETeam(*SWGameState);
+	}
+	else if (!TryParseRequestedTeamId(Options, RequestedTeamId))
+	{
+		return TEXT("请选择有效阵营。");
 	}
 
 	if (SWGameState->GetTeamPlayerCount(RequestedTeamId) >= MaxPlayersPerTeam)
@@ -139,6 +164,26 @@ void ASWGameMode::PostLogin(APlayerController* NewPlayer)
 
 	// InitNewPlayer 已完成选队验证；首名有效玩家据此启动准备期。
 	StartWarmupIfNeeded();
+}
+
+void ASWGameMode::HandleStartingNewPlayer_Implementation(APlayerController* NewPlayer)
+{
+	Super::HandleStartingNewPlayer_Implementation(NewPlayer);
+
+	// AGameMode 默认只在 InProgress 阶段生成 Pawn；本项目允许玩家在准备期内出生并移动。
+	if (GetMatchState() != MatchState::WaitingToStart || !NewPlayer || NewPlayer->GetPawn())
+	{
+		return;
+	}
+
+	const ASWPlayerState* SWPlayerState = NewPlayer->GetPlayerState<ASWPlayerState>();
+	if (!SWPlayerState || (SWPlayerState->GetTeamId() != ESWTeamId::TeamA && SWPlayerState->GetTeamId() != ESWTeamId::TeamB))
+	{
+		UE_LOG(LogTemp, Error, TEXT("准备期玩家没有有效队伍，无法生成 Pawn。"));
+		return;
+	}
+
+	RestartPlayer(NewPlayer);
 }
 
 void ASWGameMode::Logout(AController* Exiting)

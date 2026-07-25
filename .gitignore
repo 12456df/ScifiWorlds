@@ -10,12 +10,20 @@ Plugins/*/Intermediate/
 # IDE-specific local settings and generated project files
 .idea/
 .vs/
+.vscode/
+*.code-workspace
+.ignore
+compile_commands.json
 *.sln
 *.suo
 *.VC.db
 *.VC.opendb
 *.xcodeproj
 *.xcworkspace
+
+# Local learning/reference materials
+/Docs/GAS/
+/Docs/MultiPlayerNetWorkLearing/
 
 # Operating-system files
 .DS_Store

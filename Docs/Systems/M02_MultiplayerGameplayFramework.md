@@ -23,11 +23,11 @@ stateDiagram-v2
 ```
 
 - 比赛地图载入后处于 UE 内建 `MatchState::WaitingToStart`。
-- **第一名有效玩家加入时**，服务器开启 30 秒连接窗口；这避免空 Dedicated Server 自行开始一场无人对局。
-- 窗口期间，玩家必须在连接地址中提交 `?Team=TeamA` 或 `?Team=TeamB`。服务器仅验证所选队伍有效且未满 5 人，不自动平衡、替换或修改玩家的选择；两队都满时不再接受对局玩家。
+- **第一名有效玩家加入时**，服务器开启 30 秒连接窗口，并在完成分队后立即生成该玩家的 Pawn；这避免空 Dedicated Server 自行开始一场无人对局，同时允许玩家在准备期内移动和验证联机状态。
+- 在打包 Game/DS 中，窗口期间玩家必须在连接地址中提交 `?Team=TeamA` 或 `?Team=TeamB`。服务器仅验证所选队伍有效且未满 5 人，不自动平衡、替换或修改玩家的选择；两队都满时不再接受对局玩家。仅编辑器 `PIE` 世界为快速验证而自动按当前人数平衡分配 TeamA/TeamB，不读取 URL 参数。
 - 窗口结束时，若达到 `MinimumPlayersToStart`，服务器调用 `StartMatch()` 进入 `MatchState::InProgress`；M02 本地验证值为 `1`，正式对局的最小人数留为可配置的 **TBD**，不得硬编码。
 - 若 30 秒内所有玩家都离开，服务器取消该次倒计时，等待下一名有效玩家重新开启窗口。
-- 开始后默认不再接受新的对局玩家（M02 的明确规则）；完整晚加入、观战与重连策略留给 M15。
+- 打包 Game/DS 在开始后默认不再接受新的对局玩家（M02 的明确规则）；完整晚加入、观战与重连策略留给 M15。仅编辑器 `PIE` 世界放宽此限制，以避免多客户端启动时序影响开发验证。
 - 比赛正式开始后，UI 显示从 `MatchStartServerTime` 起算的**正计时**。客户端使用 `GameState::GetServerWorldTimeSeconds()` 本地计算显示，不每秒复制一个倒计时变量。
 - 任意一方水晶被服务器确认摧毁时，对方获胜，比赛转为 `MatchState::WaitingPostMatch`。防御塔和水晶的实体、受击与销毁事件在 M12 实现；M02 只预留服务器权威的报告契约。
 
@@ -47,7 +47,8 @@ stateDiagram-v2
 
 | 所有者 | 契约 | 前置条件 | 后置条件 |
 |---|---|---|---|
-| `ASWGameMode` | `InitNewPlayer` | 已创建 Controller 与 PlayerState，连接地址含 `Team` 参数 | 验证阶段、所选阵营与容量；服务器将已验证的 `TeamId` 写入 PlayerState，再进入后续出生流程。 |
+| `ASWGameMode` | `InitNewPlayer` | 已创建 Controller 与 PlayerState；打包 Game/DS 的连接地址含 `Team` 参数 | 打包 Game/DS 验证阶段、所选阵营与容量；PIE 由服务器按人数自动分队；随后服务器将 `TeamId` 写入 PlayerState，再进入后续出生流程。 |
+| `ASWGameMode` | `HandleStartingNewPlayer_Implementation` | PlayerState 已有有效 `TeamId` | 准备期内服务器显式 `RestartPlayer`，使玩家在对应 `PlayerStart` 生成并被 Possess；正式开局仅重启尚无 Pawn 的玩家，避免重复生成。 |
 | `ASWGameMode` | `ReadyToStartMatch_Implementation` | 状态为 WaitingToStart | 只在倒计时到期且人数满足配置时返回 true。 |
 | `ASWGameMode` | `ChoosePlayerStart_Implementation` | Controller 已有有效 TeamId | 从对应 `PlayerStartTag` 选择出生点；缺失时记录错误并使 M02 验收失败。 |
 | `ASWGameMode` | `ReportTeamKill` / `ReportTowerDestroyed` | 服务器、状态为 InProgress、事件来自未来受信任的战斗/结构系统 | 更新对应队伍聚合计分；M02 不向客户端暴露可伪造 RPC。 |
@@ -59,7 +60,7 @@ stateDiagram-v2
 ### 配置与未决项
 
 - `WarmupDurationSeconds = 30`、每队 `MaxPlayersPerTeam = 5`、`MinimumPlayersToStart`、开始后是否允许观战，必须放在可编辑的比赛规则配置中，而不是散落在 C++ 常量中。
-- M02 的临时选队入口为连接 URL 参数 `?Team=TeamA` 或 `?Team=TeamB`，仅用于本地 Dedicated Server 验证；正式大厅/选队 UI 的提交方式留给 M15，服务器的验证规则保持不变。
+- M02 的临时选队入口为连接 URL 参数 `?Team=TeamA` 或 `?Team=TeamB`，用于打包 Game/DS 的本地 Dedicated Server 验证；正式大厅/选队 UI 的提交方式留给 M15，服务器的验证规则保持不变。编辑器 `PIE` 的自动平衡分队仅为开发入口，不进入打包版本的对局规则。
 - 本局没有定义时限；水晶是唯一已确认的胜利条件。
 - 两个水晶在同一服务器帧被摧毁时的裁决（平局或优先级）为 **TBD**。M02 的 `ReportCrystalDestroyed` 必须设计为幂等，并在 M12 落地前补齐该规则。
 - 退出后的队伍人数继续由 `GameState::PlayerArray` 派生；GameMode 不维护第二份 roster。
@@ -71,7 +72,7 @@ M02 为后续 GAS、战斗、兵线和比赛流程提供最小的服务器权威
 ### 必须完成
 
 - FR-01：项目使用自定义 GameMode、GameState、PlayerController、PlayerState 和现有 `ASWCharacter_Base`。
-- FR-02：玩家通过连接 URL 选择 Team A 或 Team B；服务器仅在比赛处于准备期且所选队伍未满时接受选择并写入 `TeamId`。
+- FR-02：打包 Game/DS 中玩家通过连接 URL 选择 Team A 或 Team B；服务器仅在比赛处于准备期且所选队伍未满时接受选择并写入 `TeamId`。编辑器 PIE 中由服务器自动平衡分队，供快速验证使用。
 - FR-03：队伍归属由 PlayerState 唯一持有并复制给所有客户端。
 - FR-04：服务器根据队伍选择出生点、生成 Character 并完成 Possess。
 - FR-05：GameState 能从引擎维护的 `PlayerArray` 查询活动玩家和队伍人数，不维护第二份名单。
@@ -156,7 +157,7 @@ flowchart LR
 | 生命周期/API | 规则 |
 |---|---|
 | 构造函数 | 指定 GameState、PlayerController、PlayerState 和 DefaultPawn 类 |
-| `HandleStartingNewPlayer_Implementation` | 在调用 `Super` 触发生成前确保 PlayerState 已获得有效队伍 |
+| `HandleStartingNewPlayer_Implementation` | 先调用 `Super` 执行引擎生命周期；若仍处于准备期且玩家尚无 Pawn，则在确认 PlayerState 已有有效队伍后显式 `RestartPlayer` |
 | `ChoosePlayerStart_Implementation` | 在队伍 Tag 匹配项中优先选择未被阻挡的出生点，其次选择可调整位置的出生点；无匹配项时记录警告并回退引擎默认选择 |
 | `Logout` | 不维护自有名单；调用 `Super`，由引擎生命周期移除活动 PlayerState |
 
@@ -167,7 +168,7 @@ UE 5.7 源码中 `PostLogin` 最终调用 `HandleStartingNewPlayer`，后者再�
 - PlayerState 缺失：记录错误且不生成 Pawn；不能生成一个无队伍玩家。
 - 地图缺少对应队伍出生点：允许回退默认 PlayerStart 以便诊断，但 M02 验收判定失败。
 - 连续或近同时加入：GameMode 在服务器游戏线程顺序处理，每次都基于当前 PlayerArray 重新计数。
-- 晚加入：新客户端通过现有 PlayerState 复制获得当前玩家和队伍；不依赖历史 RPC。
+- 晚加入：打包 Game/DS 仍由比赛状态拒绝；编辑器 PIE 为开发验证而允许加入。已加入客户端通过现有 PlayerState 复制获得当前玩家和队伍，不依赖历史 RPC。
 - 玩家退出：不手动修改 GameState 的 `PlayerArray`，避免与引擎 `APlayerState::Destroyed` 生命周期竞争。
 - 重复队伍值：不重复广播变化事件。
 

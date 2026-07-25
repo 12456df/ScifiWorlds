@@ -41,6 +41,9 @@ protected:
 	/** 有效玩家登录后按需开启准备期。 */
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 
+	/** 准备期内也让已完成分队的玩家出生，避免 AGameMode 默认仅在 InProgress 阶段生成 Pawn。 */
+	virtual void HandleStartingNewPlayer_Implementation(APlayerController* NewPlayer) override;
+
 	/** 玩家退出后检查是否应取消无人准备期。 */
 	virtual void Logout(AController* Exiting) override;
 

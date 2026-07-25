@@ -1,6 +1,6 @@
 # UE Project Context
 
-*Last updated: 2026-07-24*
+*Last updated: 2026-07-25*
 
 ## Engine & Project Overview
 
@@ -23,8 +23,8 @@
 
 **Key dependencies:**
 
-- **Public:** Core、CoreUObject、Engine、InputCore
-- **Private:** GameplayAbilities、GameplayTags、GameplayTasks、EnhancedInput
+- **Public:** Core、CoreUObject、Engine、InputCore、GameplayAbilities、GameplayTags、GameplayTasks
+- **Private:** EnhancedInput
 - **Build settings:** BuildSettingsVersion.V6
 - **Targets:** `PolygonScifiWorlds`（Game）、`PolygonScifiWorldsEditor`（Editor）、`PolygonScifiWorldsServer`（Dedicated Server）
 
@@ -63,14 +63,15 @@
 - PlayerState: `ASWPlayerState`
 - Pawn / Character: `ASWCharacter_Base`
 
-**Custom subsystems:** None implemented/detected.
-**GAS usage:** Selected as the core gameplay ability framework; implementation not configured yet.
+**Custom subsystems:** `USWAssetManager`：启动时初始化 GAS 全局数据。
+**GAS usage:** M03 已完成。
 
-- Player ASC owner: TBD; evaluate PlayerState ownership for respawn persistence
-- AI ASC owner: TBD
-- Player replication mode: TBD; evaluate Mixed
-- AI replication mode: TBD; evaluate Minimal
-- Ability/AttributeSet/Tag base classes: TBD
+- Player ASC owner: `ASWPlayerState`; current `ASWCharacter_Base` is the Avatar and rebinds after possession/respawn.
+- Player replication mode: `Mixed`.
+- AI ASC owner: `ASWCharacter_Enemy` 自身。
+- AI replication mode: `Minimal`.
+- M03 base types: `USWAbilitySystemComponent`、`USWAttributeSet`、`USWGameplayAbility`、`USWGameplayEffect` 与原生 `SWGameplayTags`。
+- Player progression owner: `ASWPlayerState` owns replicated `Level`, `Experience`, and `AbilityPoints`; level curves and concrete values remain data-driven `TBD`.
 
 **Planned gameplay domains:**
 
@@ -81,6 +82,12 @@
 - Defensive objectives and team crystals
 
 ## Build Configuration
+
+### M03 Validation (2026-07-25)
+
+- Development Editor、Game 和 Dedicated Server Target 均已构建成功。
+- 已完成 Staged Dedicated Server 加两个客户端验证：玩家完成分队后在准备期生成并 Possess Pawn；两个客户端的 `showdebug AbilitySystem` 均确认 ASC、AttributeSet 与 PlayerState Owner / Character Avatar 绑定正确。
+- 编辑器 Gameplay Tag 选择器可见 M03 原生根 Tag；具体技能、属性动态写入与进度动态变化将在首次拥有对应生产者的 M05/M07 验证。
 
 ### M02 Validation (2026-07-24)
 
@@ -130,5 +137,5 @@ Aura is not a dependency. Read Aura `AGENTS.md` and `.agents/ue-project-context.
 - 对局人数、角色数量、单局时长与 Demo 内容规模
 - Dedicated Server 的托管方式、会话发现与玩家认证方案
 - 正式 Gameplay Framework 类与子系统边界
-- ASC 宿主、复制模式、AttributeSet/Ability 基类与 Gameplay Tag 规范
+- M03 具体属性上限、等级曲线、战斗公式与 Tag 叶子项
 - 插件保留策略、具体断言/日志规则和 CI 方案

@@ -4,47 +4,116 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerState.h"
+#include "AbilitySystemInterface.h"
 #include "Team/SWTeamTypes.h"
 #include "SWPlayerState.generated.h"
 
 class ASWGameMode;
+class UAbilitySystemComponent;
+class USWAbilitySystemComponent;
+class USWAttributeSet;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FSWOnTeamIdChanged, ESWTeamId, PreviousTeamId, ESWTeamId, NewTeamId);
 
+// UI/gameplay listeners for replicated progression changes. Broadcast on both the
+// authority (setter) and simulated proxies (OnRep) so observers stay in sync.
+DECLARE_MULTICAST_DELEGATE_OneParam(FSWOnProgressionValueChanged, int32 /*NewValue*/);
+
 /**
- * Replicated, per-player match data.
+ * Server-authoritative owner of the player's ability system and persistent progression.
  *
- * Team membership lives here rather than on a pawn, so it remains available to
- * every client while the player is respawning or changing pawns.
+ * Contract defined in Docs/Systems/M03_GASCoreFramework.md and ADR-0002. The ASC and
+ * attribute set live here so they survive Pawn respawns; the current Pawn only acts as
+ * the ASC avatar. The server is the sole writer of Level, Experience and AbilityPoints.
  */
 UCLASS()
-class POLYGONSCIFIWORLDS_API ASWPlayerState : public APlayerState
+class POLYGONSCIFIWORLDS_API ASWPlayerState : public APlayerState, public IAbilitySystemInterface
 {
 	GENERATED_BODY()
 
 public:
 	ASWPlayerState();
 
-	/** Returns this player's server-assigned team. Safe to read on every machine. */
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+	//~ Begin IAbilitySystemInterface
+	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
+	//~ End IAbilitySystemInterface
+
+	USWAttributeSet* GetAttributeSet() const { return AttributeSet; }
+
+	/** 返回服务器分配的队伍；所有端均可安全读取。 */
 	UFUNCTION(BlueprintPure, Category = "Team")
 	ESWTeamId GetTeamId() const { return TeamId; }
 
-	/** Broadcast on the server and on clients when TeamId changes. */
+	/** 队伍变化时在服务器与客户端触发，供蓝图表现层订阅。 */
 	UPROPERTY(BlueprintAssignable, Category = "Team")
 	FSWOnTeamIdChanged OnTeamIdChanged;
 
-	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	// --- Progression readers (any client may read) ---
 
-private:
-	/** The match referee is the sole writer of a player's team assignment. */
+	FORCEINLINE int32 GetPlayerLevel() const { return Level; }
+	FORCEINLINE int32 GetExperience() const { return Experience; }
+	FORCEINLINE int32 GetAbilityPoints() const { return AbilityPoints; }
+
+	// --- Server-authoritative progression writers ---
+	// All mutators no-op off the authority; clients only request intent elsewhere.
+
+	/** Adds experience (non-negative delta). Data-driven level-up processing lands with the progression config (later step). */
+	void AddExperience(int32 DeltaExperience);
+
+	/** Sets the current level directly, clamped to a minimum of 1. */
+	void SetLevel(int32 NewLevel);
+
+	/** Grants ability points (non-negative delta). */
+	void GrantAbilityPoints(int32 DeltaPoints);
+
+	/** Consumes a single ability point if available. Returns true when a point was spent. */
+	bool SpendAbilityPoint();
+
+	// --- Change delegates ---
+
+	FSWOnProgressionValueChanged OnLevelChanged;
+	FSWOnProgressionValueChanged OnExperienceChanged;
+	FSWOnProgressionValueChanged OnAbilityPointsChanged;
+
+protected:
+	/** 只有服务器 GameMode 能写入队伍归属。 */
 	friend class ASWGameMode;
 
 	void SetTeamId(ESWTeamId NewTeamId);
 	bool IsValidTeamId(ESWTeamId TeamIdToValidate) const;
 
+	UPROPERTY(VisibleAnywhere, Category = "SW|GAS")
+	TObjectPtr<USWAbilitySystemComponent> AbilitySystemComponent;
+
+	UPROPERTY(VisibleAnywhere, Category = "SW|GAS")
+	TObjectPtr<USWAttributeSet> AttributeSet;
+
+	// --- Replicated progression state (server writes, all clients read) ---
+
+	UPROPERTY(VisibleAnywhere, Category = "SW|Progression", ReplicatedUsing = OnRep_Level)
+	int32 Level = 1;
+
+	UPROPERTY(VisibleAnywhere, Category = "SW|Progression", ReplicatedUsing = OnRep_Experience)
+	int32 Experience = 0;
+
+	UPROPERTY(VisibleAnywhere, Category = "SW|Progression", ReplicatedUsing = OnRep_AbilityPoints)
+	int32 AbilityPoints = 0;
+
+	/** 队伍初始为 None，仅由 GameMode 在加入流程中写入。 */
+	UPROPERTY(ReplicatedUsing = OnRep_TeamId, BlueprintReadOnly, Category = "Team", meta = (AllowPrivateAccess = "true"))
+	ESWTeamId TeamId = ESWTeamId::None;
+
 	UFUNCTION()
 	void OnRep_TeamId(ESWTeamId PreviousTeamId);
 
-	UPROPERTY(ReplicatedUsing = OnRep_TeamId, BlueprintReadOnly, Category = "Team", meta = (AllowPrivateAccess = "true"))
-	ESWTeamId TeamId = ESWTeamId::None;
+	UFUNCTION()
+	void OnRep_Level(int32 OldLevel);
+
+	UFUNCTION()
+	void OnRep_Experience(int32 OldExperience);
+
+	UFUNCTION()
+	void OnRep_AbilityPoints(int32 OldAbilityPoints);
 };

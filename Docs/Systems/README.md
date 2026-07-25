@@ -18,3 +18,4 @@
 |---|---|---|---|
 | M01 工程与构建基础工作清单 | [M01_ProjectBuildFoundation_Checklist.md](M01_ProjectBuildFoundation_Checklist.md) | `12456df` | Approved |
 | M02 多人 Gameplay Framework | [M02_MultiplayerGameplayFramework.md](M02_MultiplayerGameplayFramework.md) | `12456df` | Approved |
+| M03 GAS 核心框架 | [M03_GASCoreFramework.md](M03_GASCoreFramework.md) | `12456df` | Approved |

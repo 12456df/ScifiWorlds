@@ -1,34 +1,23 @@
-// Copyright (c) 2024 Synty Studios Limited. All rights reserved.
-
+// Copyright (c) 2026 ZhangJian Limited. All rights reserved.
 
 #include "Character/SWCharacter_Base.h"
 
-// Sets default values
 ASWCharacter_Base::ASWCharacter_Base()
 {
- 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
-
+	PrimaryActorTick.bCanEverTick = false;
 }
 
-// Called when the game starts or when spawned
 void ASWCharacter_Base::BeginPlay()
 {
 	Super::BeginPlay();
-	
 }
 
-// Called every frame
-void ASWCharacter_Base::Tick(float DeltaTime)
+UAbilitySystemComponent* ASWCharacter_Base::GetAbilitySystemComponent() const
 {
-	Super::Tick(DeltaTime);
-
+	return AbilitySystemComponent;
 }
 
-// Called to bind functionality to input
-void ASWCharacter_Base::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+void ASWCharacter_Base::InitAbilityActorInfo()
 {
-	Super::SetupPlayerInputComponent(PlayerInputComponent);
-
+	// 基类不做任何绑定；玩家与 AI 子类分别覆写。
 }
-
