@@ -75,7 +75,7 @@ M00 的目标是建立足以安全开始开发的功能方向与技术规范，�
 |---|---|---|---|
 | M00 | `milestone/m00` | 2026-07-20 | 功能方向、GAS/多人/DS 技术规范、独立开发流程、路线图、SSOT 与私有仓库安全策略完成审计 |
 | M01 | `milestone/m01` | 2026-07-23 | UE 5.7.4 源码引擎、GAS/Enhanced Input、Game/Editor/Server Target、WindowsServer Cook/Stage、DS UDP 7777 与本地客户端连通性均已验证；参数化脚本覆盖构建、Cook 与本地 DS 启动。 |
-| M03 | `待记录` | 2026-07-25 | 玩家 ASC/AttributeSet 归属 PlayerState，服务器与拥有者客户端完成 Owner/Avatar 绑定；原生 Tag、Ability/Effect 基类、进度字段和 AI 自持 ASC 基础完成。Editor/Game/Server Development Target 构建成功，Staged DS 加两客户端完成 GAS 调试验证。 |
+| M03 | `cded842` | 2026-07-25 | 玩家 ASC/AttributeSet 归属 PlayerState，服务器与拥有者客户端完成 Owner/Avatar 绑定；原生 Tag、Ability/Effect 基类、进度字段和 AI 自持 ASC 基础完成。Editor/Game/Server Development Target 构建成功，Staged DS 加两客户端完成 GAS 调试验证。 |
 
 ## 路线图变更规则
 
