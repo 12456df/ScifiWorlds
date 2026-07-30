@@ -82,6 +82,11 @@ flowchart LR
 | 技能修正 | `AbilityRangeMultiplier` | 0 表示无修正；`有效范围 = 基础范围 × (1 + 修正值)`。 |
 | 技能修正 | `AbilityDurationMultiplier` | 0 表示无修正；`有效持续时间 = 基础持续时间 × (1 + 修正值)`。 |
 | 技能修正 | `CooldownReductionMultiplier` | 0 表示无修正；`有效冷却 = 基础冷却 × (1 - 修正值)`。 |
+| 资源 | `Stamina`, `MaxStamina` | 疾跑等行为的当前体力与上限；初始值、消耗和恢复由后续 GE 数据驱动。 |
+| 武器修正 | `MagazineCapacityBonusPercent` | 0 表示无修正；`有效弹匣容量 = floor(基础容量 × (1 + 修正值))`，最小为 1。 |
+| 武器修正 | `FireIntervalReductionPercent` | 0 表示无修正；`有效射击间隔 = 基础间隔 × (1 - 修正值)`，服务器保留最小安全间隔。 |
+| Meta | `IncomingDamage` | 不复制；GE 写入后结算为生命减少并立即清零。 |
+| Meta | `IncomingXP` | 不复制；GE 写入后转交 PlayerState 增加经验并立即清零。 |
 
 属性百分比的合法范围、最大值变化时当前资源的保持策略，以及每项属性的初始值均为数据驱动配置；具体上限与数值保持 `TBD`。M03 不把修正值直接写入某个技能实例：后续能力在提交冷却、创建效果 Spec 或计算目标数据时读取快照。已生效的持续效果和已启动的冷却不回溯重算，除非对应能力明确设计为动态更新。
 

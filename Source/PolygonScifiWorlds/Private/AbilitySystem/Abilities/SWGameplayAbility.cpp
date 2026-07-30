@@ -4,6 +4,19 @@
 
 #include "AbilitySystemComponent.h"
 #include "AbilitySystem/SWAttributeSet.h"
+#include "GameFramework/Character.h"
+#include "Movement/SWCharacterMovementComponent.h"
+
+void USWGameplayAbility::SetAvatarSprintRequested(const bool bRequested) const
+{
+	if (ACharacter* AvatarCharacter = Cast<ACharacter>(GetAvatarActorFromActorInfo()))
+	{
+		if (USWCharacterMovementComponent* MovementComponent = Cast<USWCharacterMovementComponent>(AvatarCharacter->GetCharacterMovement()))
+		{
+			MovementComponent->SetSprintRequested(bRequested);
+		}
+	}
+}
 
 float USWGameplayAbility::GetEffectiveRange(float BaseRange) const
 {

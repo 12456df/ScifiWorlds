@@ -1,6 +1,6 @@
 # UE Project Context
 
-*Last updated: 2026-07-25*
+*Last updated: 2026-07-30*
 
 ## Engine & Project Overview
 
@@ -82,6 +82,13 @@
 - Defensive objectives and team crystals
 
 ## Build Configuration
+
+### M04 Validation (2026-07-30)
+
+- Development Editor、Game 和 Dedicated Server Target 均已构建成功。
+- 已完成 Staged Dedicated Server 加两个外部客户端验证：连接、第三人称移动、跳跃、下蹲、疾跑、瞄准、开火、换弹、弹药同步、服务器权威弹丸和最小准星均可运行。
+- 同机双客户端验证前，两个客户端均需执行 `t.MaxFPS 60` 与 `t.IdleWhenNotForeground 0`，避免未限帧前台窗口造成 GPU/Draw 争用，使失焦客户端帧时间及本地 Ping/Jitter 诊断失真。
+- `WeaponUpperSM` 未按预期使用 `BS1D_PistolUpper_Locomotion` 的问题已登记为 M04 非阻塞后续项。
 
 ### M03 Validation (2026-07-25)
 

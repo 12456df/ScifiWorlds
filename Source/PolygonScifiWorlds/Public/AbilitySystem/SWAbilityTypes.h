@@ -3,7 +3,25 @@
 #pragma once
 
 #include "GameplayEffectTypes.h"
+#include "GameplayTagContainer.h"
 #include "SWAbilityTypes.generated.h"
+
+class USWGameplayAbility;
+
+/** 蓝图默认值中的启动技能与其输入路由 Tag。 */
+USTRUCT(BlueprintType)
+struct FSWStartupAbility
+{
+	GENERATED_BODY()
+
+	/** 要由服务器授予的技能蓝图或 C++ 类。 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability")
+	TSubclassOf<USWGameplayAbility> AbilityClass;
+
+	/** 与 Input Config 中 IA 对应的输入 Tag。 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability", meta = (Categories = "Ability.Input"))
+	FGameplayTag InputTag;
+};
 
 /**
  * ScifiWorlds 项目自定义的 GameplayEffectContext。

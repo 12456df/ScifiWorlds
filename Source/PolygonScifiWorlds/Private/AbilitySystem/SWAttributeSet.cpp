@@ -4,6 +4,7 @@
 
 #include "GameplayEffectExtension.h"
 #include "Net/UnrealNetwork.h"
+#include "Player/SWPlayerState.h"
 
 USWAttributeSet::USWAttributeSet()
 {
@@ -19,6 +20,8 @@ void USWAttributeSet::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, MaxHealth, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, Mana, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, MaxMana, COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, Stamina, COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, MaxStamina, COND_None, REPNOTIFY_Always);
 
 	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, AttackPower, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, SpellPower, COND_None, REPNOTIFY_Always);
@@ -41,6 +44,8 @@ void USWAttributeSet::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, AbilityRangeMultiplier, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, AbilityDurationMultiplier, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, CooldownReductionMultiplier, COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, MagazineCapacityBonusPercent, COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, FireIntervalReductionPercent, COND_None, REPNOTIFY_Always);
 }
 
 void USWAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
@@ -56,6 +61,10 @@ void USWAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, fl
 	{
 		NewValue = FMath::Clamp(NewValue, 0.f, GetMaxMana());
 	}
+	else if (Attribute == GetStaminaAttribute())
+	{
+		NewValue = FMath::Clamp(NewValue, 0.f, GetMaxStamina());
+	}
 	else if (Attribute == GetMaxHealthAttribute())
 	{
 		NewValue = FMath::Max(0.f, NewValue);
@@ -67,6 +76,11 @@ void USWAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, fl
 		NewValue = FMath::Max(0.f, NewValue);
 		// 最大蓝量降低时只截断当前蓝量，不在最大值恢复后返还被截断的蓝量。
 		SetMana(FMath::Clamp(GetMana(), 0.f, NewValue));
+	}
+	else if (Attribute == GetMaxStaminaAttribute())
+	{
+		NewValue = FMath::Max(0.f, NewValue);
+		SetStamina(FMath::Clamp(GetStamina(), 0.f, NewValue));
 	}
 }
 
@@ -82,6 +96,33 @@ void USWAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallback
 	else if (Data.EvaluatedData.Attribute == GetManaAttribute())
 	{
 		SetMana(FMath::Clamp(GetMana(), 0.f, GetMaxMana()));
+	}
+	else if (Data.EvaluatedData.Attribute == GetStaminaAttribute())
+	{
+		SetStamina(FMath::Clamp(GetStamina(), 0.f, GetMaxStamina()));
+	}
+	else if (Data.EvaluatedData.Attribute == GetIncomingDamageAttribute())
+	{
+		const float Damage = FMath::Max(0.f, GetIncomingDamage());
+		SetIncomingDamage(0.f);
+
+		if (Damage > 0.f)
+		{
+			SetHealth(FMath::Clamp(GetHealth() - Damage, 0.f, GetMaxHealth()));
+		}
+	}
+	else if (Data.EvaluatedData.Attribute == GetIncomingXPAttribute())
+	{
+		const int32 ExperienceToGrant = FMath::Max(0, FMath::FloorToInt(GetIncomingXP()));
+		SetIncomingXP(0.f);
+
+		if (ExperienceToGrant > 0)
+		{
+			if (ASWPlayerState* PlayerState = Cast<ASWPlayerState>(Data.Target.GetOwnerActor()))
+			{
+				PlayerState->AddExperience(ExperienceToGrant);
+			}
+		}
 	}
 }
 
@@ -103,6 +144,16 @@ void USWAttributeSet::OnRep_Mana(const FGameplayAttributeData& OldValue) const
 void USWAttributeSet::OnRep_MaxMana(const FGameplayAttributeData& OldValue) const
 {
 	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, MaxMana, OldValue);
+}
+
+void USWAttributeSet::OnRep_Stamina(const FGameplayAttributeData& OldValue) const
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, Stamina, OldValue);
+}
+
+void USWAttributeSet::OnRep_MaxStamina(const FGameplayAttributeData& OldValue) const
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, MaxStamina, OldValue);
 }
 
 void USWAttributeSet::OnRep_AttackPower(const FGameplayAttributeData& OldValue) const
@@ -178,4 +229,14 @@ void USWAttributeSet::OnRep_AbilityDurationMultiplier(const FGameplayAttributeDa
 void USWAttributeSet::OnRep_CooldownReductionMultiplier(const FGameplayAttributeData& OldValue) const
 {
 	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, CooldownReductionMultiplier, OldValue);
+}
+
+void USWAttributeSet::OnRep_MagazineCapacityBonusPercent(const FGameplayAttributeData& OldValue) const
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, MagazineCapacityBonusPercent, OldValue);
+}
+
+void USWAttributeSet::OnRep_FireIntervalReductionPercent(const FGameplayAttributeData& OldValue) const
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, FireIntervalReductionPercent, OldValue);
 }
