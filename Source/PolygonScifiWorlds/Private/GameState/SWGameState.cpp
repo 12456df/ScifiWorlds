@@ -2,13 +2,40 @@
 
 #include "GameState/SWGameState.h"
 
+#include "Engine/NetDriver.h"
+#include "Engine/World.h"
+#include "Misc/App.h"
 #include "Net/UnrealNetwork.h"
 #include "Player/SWPlayerState.h"
+#include "TimerManager.h"
 
 ASWGameState::ASWGameState()
 {
 	// AGameState is replicated and always relevant by the engine. All custom
 	// state below is written by the server and replicated to every client.
+}
+
+void ASWGameState::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (HasAuthority())
+	{
+		UpdateServerNetworkSnapshot();
+		GetWorldTimerManager().SetTimer(
+			ServerNetworkSnapshotTimer,
+			this,
+			&ThisClass::UpdateServerNetworkSnapshot,
+			ServerNetworkSnapshotIntervalSeconds,
+			true);
+	}
+}
+
+void ASWGameState::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	GetWorldTimerManager().ClearTimer(ServerNetworkSnapshotTimer);
+
+	Super::EndPlay(EndPlayReason);
 }
 
 int32 ASWGameState::GetTeamPlayerCount(const ESWTeamId TeamId) const
@@ -75,6 +102,34 @@ void ASWGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	DOREPLIFETIME(ASWGameState, WinningTeam);
 	DOREPLIFETIME(ASWGameState, TeamAStats);
 	DOREPLIFETIME(ASWGameState, TeamBStats);
+	DOREPLIFETIME(ASWGameState, ServerNetworkSnapshot);
+}
+
+void ASWGameState::UpdateServerNetworkSnapshot()
+{
+	check(HasAuthority());
+
+	FSWServerNetworkSnapshot NewSnapshot;
+	NewSnapshot.FrameTimeMilliseconds = FApp::GetDeltaTime() * 1000.0f;
+
+	if (const UNetDriver* NetDriver = GetWorld()->GetNetDriver())
+	{
+		NewSnapshot.ConnectedClientCount = NetDriver->ClientConnections.Num();
+		NewSnapshot.InKilobitsPerSecond = static_cast<float>(NetDriver->InBytesPerSecond) * 8.0f / 1000.0f;
+		NewSnapshot.OutKilobitsPerSecond = static_cast<float>(NetDriver->OutBytesPerSecond) * 8.0f / 1000.0f;
+		NewSnapshot.InPacketsPerSecond = static_cast<int32>(NetDriver->InPackets);
+		NewSnapshot.OutPacketsPerSecond = static_cast<int32>(NetDriver->OutPackets);
+		NewSnapshot.InPacketLossPercent = static_cast<float>(NetDriver->InPacketsLost);
+		NewSnapshot.OutPacketLossPercent = static_cast<float>(NetDriver->OutPacketsLost);
+	}
+
+	ServerNetworkSnapshot = NewSnapshot;
+	OnServerNetworkSnapshotChanged.Broadcast(ServerNetworkSnapshot);
+}
+
+void ASWGameState::OnRep_ServerNetworkSnapshot()
+{
+	OnServerNetworkSnapshotChanged.Broadcast(ServerNetworkSnapshot);
 }
 
 void ASWGameState::SetWarmupEndServerTime(const double NewWarmupEndServerTime)

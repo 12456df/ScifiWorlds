@@ -21,6 +21,10 @@ class POLYGONSCIFIWORLDS_API USWGameplayAbility : public UGameplayAbility
 	GENERATED_BODY()
 
 public:
+	/** 仅供派生 Ability 蓝图调用，向当前 Avatar 的 CMC 写入疾跑预测意图。 */
+	UFUNCTION(BlueprintCallable, Category = "SW|Movement")
+	void SetAvatarSprintRequested(bool bRequested) const;
+
 	/** 有效范围 = 基础范围 × (1 + AbilityRangeMultiplier)。无 ASC 时按无修正处理。 */
 	UFUNCTION(BlueprintPure, Category = "SW|Ability")
 	float GetEffectiveRange(float BaseRange) const;

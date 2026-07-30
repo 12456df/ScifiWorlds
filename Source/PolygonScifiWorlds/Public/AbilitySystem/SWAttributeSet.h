@@ -53,6 +53,16 @@ public:
 	FGameplayAttributeData MaxMana;
 	ATTRIBUTE_ACCESSORS(USWAttributeSet, MaxMana);
 
+	/** 疾跑等移动行为消耗的当前体力值。 */
+	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|Resources", ReplicatedUsing = OnRep_Stamina)
+	FGameplayAttributeData Stamina;
+	ATTRIBUTE_ACCESSORS(USWAttributeSet, Stamina);
+
+	/** 当前体力值的上限。 */
+	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|Resources", ReplicatedUsing = OnRep_MaxStamina)
+	FGameplayAttributeData MaxStamina;
+	ATTRIBUTE_ACCESSORS(USWAttributeSet, MaxStamina);
+
 	// --- Offense ---
 
 	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|Offense", ReplicatedUsing = OnRep_AttackPower)
@@ -131,6 +141,30 @@ public:
 	FGameplayAttributeData CooldownReductionMultiplier;
 	ATTRIBUTE_ACCESSORS(USWAttributeSet, CooldownReductionMultiplier);
 
+	// --- Weapon modifiers ---
+
+	/** 对武器基础弹匣容量的百分比加成；0 表示不加成。 */
+	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|WeaponMod", ReplicatedUsing = OnRep_MagazineCapacityBonusPercent)
+	FGameplayAttributeData MagazineCapacityBonusPercent;
+	ATTRIBUTE_ACCESSORS(USWAttributeSet, MagazineCapacityBonusPercent);
+
+	/** 对射击间隔的百分比减免；0 表示不减免。 */
+	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|WeaponMod", ReplicatedUsing = OnRep_FireIntervalReductionPercent)
+	FGameplayAttributeData FireIntervalReductionPercent;
+	ATTRIBUTE_ACCESSORS(USWAttributeSet, FireIntervalReductionPercent);
+
+	// --- Meta attributes ---
+
+	/** 瞬时伤害结算载体；执行后转化为生命变化并立即清零，不复制。 */
+	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|Meta")
+	FGameplayAttributeData IncomingDamage;
+	ATTRIBUTE_ACCESSORS(USWAttributeSet, IncomingDamage);
+
+	/** 瞬时经验结算载体；执行后写入 PlayerState 并立即清零，不复制。 */
+	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|Meta")
+	FGameplayAttributeData IncomingXP;
+	ATTRIBUTE_ACCESSORS(USWAttributeSet, IncomingXP);
+
 protected:
 	// --- Replication callbacks ---
 
@@ -145,6 +179,12 @@ protected:
 
 	UFUNCTION()
 	void OnRep_MaxMana(const FGameplayAttributeData& OldValue) const;
+
+	UFUNCTION()
+	void OnRep_Stamina(const FGameplayAttributeData& OldValue) const;
+
+	UFUNCTION()
+	void OnRep_MaxStamina(const FGameplayAttributeData& OldValue) const;
 
 	UFUNCTION()
 	void OnRep_AttackPower(const FGameplayAttributeData& OldValue) const;
@@ -190,4 +230,10 @@ protected:
 
 	UFUNCTION()
 	void OnRep_CooldownReductionMultiplier(const FGameplayAttributeData& OldValue) const;
+
+	UFUNCTION()
+	void OnRep_MagazineCapacityBonusPercent(const FGameplayAttributeData& OldValue) const;
+
+	UFUNCTION()
+	void OnRep_FireIntervalReductionPercent(const FGameplayAttributeData& OldValue) const;
 };

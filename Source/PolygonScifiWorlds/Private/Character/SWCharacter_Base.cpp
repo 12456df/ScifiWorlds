@@ -2,7 +2,8 @@
 
 #include "Character/SWCharacter_Base.h"
 
-ASWCharacter_Base::ASWCharacter_Base()
+ASWCharacter_Base::ASWCharacter_Base(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	PrimaryActorTick.bCanEverTick = false;
 }

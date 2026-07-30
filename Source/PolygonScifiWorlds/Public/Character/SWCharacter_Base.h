@@ -24,7 +24,7 @@ class POLYGONSCIFIWORLDS_API ASWCharacter_Base : public ACharacter, public IAbil
 	GENERATED_BODY()
 
 public:
-	ASWCharacter_Base();
+	ASWCharacter_Base(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	//~ Begin IAbilitySystemInterface
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
