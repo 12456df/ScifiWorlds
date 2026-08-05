@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "UI/DamageNumber/SWDamageNumberTypes.h"
 #include "SWPlayerController.generated.h"
 
 class USWInputConfig;
@@ -22,13 +23,26 @@ class POLYGONSCIFIWORLDS_API ASWPlayerController : public APlayerController
 public:
 	//~ Begin APlayerController interface
 	virtual void BeginPlay() override;
+	virtual void BeginPlayingState() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	virtual void OnRep_PlayerState() override;
 	virtual void PostProcessInput(const float DeltaTime, const bool bGamePaused) override;
 	//~ End APlayerController interface
 
 	/** 返回唯一输入配置；Pawn 只能读取，不能持有第二份配置。 */
 	UFUNCTION(BlueprintPure, Category = "Input")
 	const USWInputConfig* GetInputConfig() const { return InputConfig; }
+
+	/**
+	 * 仅服务器调用：将已结算的伤害数字发送给本 Controller 的所属客户端。
+	 * 这是高频、可丢失的纯表现事件，不能承载或修改任何权威战斗状态。
+	 */
+	UFUNCTION(Client, Unreliable)
+	void ClientShowDamageNumber(const FSWDamageNumberPayload& Payload);
+
+	/** 仅本地客户端表现入口；由蓝图创建并驱动 WBP_DamageNumber。 */
+	UFUNCTION(BlueprintImplementableEvent, Category = "UI|Damage Number", meta = (DisplayName = "显示伤害数字"))
+	void BP_ShowDamageNumber(const FSWDamageNumberPayload& Payload);
 
 protected:
 	/** 由 PlayerController 蓝图默认值指定的唯一输入数据资产。 */
@@ -38,4 +52,5 @@ protected:
 	/** 仅本地 Controller 的 IMC 生命周期入口；重生 Pawn 不会重复添加映射。 */
 	void ApplyGameplayMappingContext();
 	void RemoveGameplayMappingContext();
+	void RefreshOverlayWidgetControllers();
 };

@@ -4,7 +4,35 @@
 
 bool FSWGameplayEffectContext::NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess)
 {
-	// M03 未新增需要复制的字段，直接复用基类序列化流程。
-	// 后续新增战斗结果字段时，应改为按位打包（RepBits）以避免冗余带宽。
-	return FGameplayEffectContext::NetSerialize(Ar, Map, bOutSuccess);
+	if (!FGameplayEffectContext::NetSerialize(Ar, Map, bOutSuccess))
+	{
+		return false;
+	}
+
+	uint8 RepBits = 0;
+	if (Ar.IsSaving())
+	{
+		if (bCriticalHit)
+		{
+			RepBits |= 1 << 0;
+		}
+		if (DamageType.IsValid())
+		{
+			RepBits |= 1 << 1;
+		}
+	}
+
+	Ar.SerializeBits(&RepBits, 2);
+	bCriticalHit = (RepBits & (1 << 0)) != 0;
+
+	if (RepBits & (1 << 1))
+	{
+		DamageType.NetSerialize(Ar, Map, bOutSuccess);
+	}
+	else if (Ar.IsLoading())
+	{
+		DamageType = FGameplayTag();
+	}
+
+	return bOutSuccess;
 }

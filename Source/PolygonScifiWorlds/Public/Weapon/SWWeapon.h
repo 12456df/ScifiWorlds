@@ -10,6 +10,7 @@
 class UMeshComponent;
 class USkeletalMeshComponent;
 class UStaticMeshComponent;
+struct FOnAttributeChangeData;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FSWOnWeaponAmmoChanged, int32, MagazineAmmo);
 
@@ -26,6 +27,13 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Weapon")
 	int32 GetMagazineAmmo() const { return CurrentMagazineAmmo; }
+
+	/** 返回属性修正后的有效弹匣容量，供拥有者 HUD 只读显示。 */
+	UFUNCTION(BlueprintPure, Category = "Weapon")
+	int32 GetEffectiveMagazineCapacityForUI() const { return GetEffectiveMagazineCapacity(); }
+
+	/** 返回武器配置的 HUD 图标软引用；由拥有者 UI 负责按需加载与显示。 */
+	TSoftObjectPtr<class UTexture2D> GetWeaponIcon() const { return WeaponConfig.WeaponIcon; }
 
 	UFUNCTION(BlueprintPure, Category = "Weapon")
 	bool CanFire() const;
@@ -101,6 +109,8 @@ private:
 	bool BuildAuthoritativeShotDirection(const FTransform& MuzzleTransform, FVector& OutDirection) const;
 	void BroadcastAmmoChanged();
 	void ExecuteOwnerGameplayCue(FGameplayTag CueTag) const;
+	void BindMagazineCapacityMultiplierAuthority();
+	void HandleMagazineCapacityMultiplierChanged(const FOnAttributeChangeData& ChangeData);
 
 	/** 只存在于服务器，作为射速验证的唯一时间来源。 */
 	float NextAllowedFireServerTime = 0.f;

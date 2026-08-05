@@ -6,6 +6,8 @@
 #include "GameplayEffect.h"
 #include "SWGameplayEffect.generated.h"
 
+class UAbilitySystemComponent;
+
 /**
  * ScifiWorlds 所有 Gameplay Effect 的 C++ 基础契约类型。
  *
@@ -16,4 +18,14 @@ UCLASS()
 class POLYGONSCIFIWORLDS_API USWGameplayEffect : public UGameplayEffect
 {
 	GENERATED_BODY()
+
+public:
+	/**
+	 * 判断 Effect Spec 的源与目标是否属于同一有效队伍。
+	 * 依次从 ASC Owner 与 Avatar 上的 Team 接口读取 ESWTeamId；None、缺失或未实现队伍真值的对象均不视为友军。
+	 */
+	static bool AreSourceAndTargetOnSameTeam(const FGameplayEffectSpec& EffectSpec, const UAbilitySystemComponent* TargetAbilitySystemComponent);
+
+	/** 供不依赖 Effect Spec 的通用 Buff、Debuff 与 Damage 逻辑复用的同队查询。 */
+	static bool AreAbilitySystemComponentsOnSameTeam(const UAbilitySystemComponent* SourceAbilitySystemComponent, const UAbilitySystemComponent* TargetAbilitySystemComponent);
 };

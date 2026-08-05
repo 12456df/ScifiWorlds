@@ -10,5 +10,6 @@ bool FSWProjectileConfig::IsValid() const
 		&& CollisionRadius > 0.f
 		&& LifeSeconds > 0.f
 		&& Bounciness >= 0.f
-		&& Bounciness <= 1.f;
+		&& Bounciness <= 1.f
+		&& DamageEffectClass != nullptr;
 }

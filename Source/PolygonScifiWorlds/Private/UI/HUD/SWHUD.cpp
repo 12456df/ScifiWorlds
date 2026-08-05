@@ -8,6 +8,9 @@
 #include "Player/SWPlayerController.h"
 #include "Player/SWPlayerState.h"
 #include "UI/Widget/SWUserWidget.h"
+#include "UI/WidgetController/Overlay/SWAttributeOverlayWidgetController.h"
+#include "UI/WidgetController/Overlay/SWProgressionOverlayWidgetController.h"
+#include "UI/WidgetController/Overlay/SWWeaponOverlayWidgetController.h"
 #include "UI/WidgetController/SWNetworkDiagnosticsWidgetController.h"
 #include "UI/WidgetController/SWWidgetController.h"
 
@@ -73,4 +76,133 @@ USWNetworkDiagnosticsWidgetController* ASWHUD::GetNetworkDiagnosticsWidgetContro
 	NetworkDiagnosticsWidgetController->BindCallbacksToDependencies();
 	NetworkDiagnosticsWidgetController->BroadcastInitialValues();
 	return NetworkDiagnosticsWidgetController;
+}
+
+USWAttributeOverlayWidgetController* ASWHUD::GetAttributeOverlayWidgetController()
+{
+	if (AttributeOverlayWidgetController)
+	{
+		return AttributeOverlayWidgetController;
+	}
+
+	ASWPlayerController* SWPlayerController = Cast<ASWPlayerController>(PlayerOwner);
+	if (!SWPlayerController || !SWPlayerController->IsLocalController())
+	{
+		return nullptr;
+	}
+
+	UClass* ControllerClass = AttributeOverlayWidgetControllerClass.Get();
+	if (!ControllerClass)
+	{
+		ControllerClass = USWAttributeOverlayWidgetController::StaticClass();
+	}
+
+	AttributeOverlayWidgetController = NewObject<USWAttributeOverlayWidgetController>(this, ControllerClass);
+	if (AttributeOverlayWidgetController)
+	{
+		const FSWWidgetControllerParams Params(SWPlayerController, SWPlayerController->GetPlayerState<ASWPlayerState>(), GetWorld() ? GetWorld()->GetGameState<ASWGameState>() : nullptr);
+		AttributeOverlayWidgetController->SetWidgetControllerParams(Params);
+		AttributeOverlayWidgetController->BindCallbacksToDependencies();
+		AttributeOverlayWidgetController->BroadcastInitialValues();
+	}
+
+	return AttributeOverlayWidgetController;
+}
+
+USWWeaponOverlayWidgetController* ASWHUD::GetWeaponOverlayWidgetController()
+{
+	if (WeaponOverlayWidgetController)
+	{
+		return WeaponOverlayWidgetController;
+	}
+
+	ASWPlayerController* SWPlayerController = Cast<ASWPlayerController>(PlayerOwner);
+	if (!SWPlayerController || !SWPlayerController->IsLocalController())
+	{
+		return nullptr;
+	}
+
+	UClass* ControllerClass = WeaponOverlayWidgetControllerClass.Get();
+	if (!ControllerClass)
+	{
+		ControllerClass = USWWeaponOverlayWidgetController::StaticClass();
+	}
+
+	WeaponOverlayWidgetController = NewObject<USWWeaponOverlayWidgetController>(this, ControllerClass);
+	if (WeaponOverlayWidgetController)
+	{
+		const FSWWidgetControllerParams Params(SWPlayerController, SWPlayerController->GetPlayerState<ASWPlayerState>(), GetWorld() ? GetWorld()->GetGameState<ASWGameState>() : nullptr);
+		WeaponOverlayWidgetController->SetWidgetControllerParams(Params);
+		WeaponOverlayWidgetController->BindCallbacksToDependencies();
+		WeaponOverlayWidgetController->BroadcastInitialValues();
+	}
+
+	return WeaponOverlayWidgetController;
+}
+
+USWProgressionOverlayWidgetController* ASWHUD::GetProgressionOverlayWidgetController()
+{
+	if (ProgressionOverlayWidgetController)
+	{
+		return ProgressionOverlayWidgetController;
+	}
+
+	ASWPlayerController* SWPlayerController = Cast<ASWPlayerController>(PlayerOwner);
+	if (!SWPlayerController || !SWPlayerController->IsLocalController())
+	{
+		return nullptr;
+	}
+
+	UClass* ControllerClass = ProgressionOverlayWidgetControllerClass.Get();
+	if (!ControllerClass)
+	{
+		ControllerClass = USWProgressionOverlayWidgetController::StaticClass();
+	}
+
+	ProgressionOverlayWidgetController = NewObject<USWProgressionOverlayWidgetController>(this, ControllerClass);
+	if (ProgressionOverlayWidgetController)
+	{
+		const FSWWidgetControllerParams Params(SWPlayerController, SWPlayerController->GetPlayerState<ASWPlayerState>(), GetWorld() ? GetWorld()->GetGameState<ASWGameState>() : nullptr);
+		ProgressionOverlayWidgetController->SetWidgetControllerParams(Params);
+		ProgressionOverlayWidgetController->BindCallbacksToDependencies();
+		ProgressionOverlayWidgetController->BroadcastInitialValues();
+	}
+
+	return ProgressionOverlayWidgetController;
+}
+
+void ASWHUD::RefreshOverlayWidgetControllers()
+{
+	ASWPlayerController* SWPlayerController = Cast<ASWPlayerController>(PlayerOwner);
+	if (!SWPlayerController || !SWPlayerController->IsLocalController())
+	{
+		return;
+	}
+
+	const FSWWidgetControllerParams Params(
+		SWPlayerController,
+		SWPlayerController->GetPlayerState<ASWPlayerState>(),
+		GetWorld() ? GetWorld()->GetGameState<ASWGameState>() : nullptr);
+
+	// HUD 可能早于客户端 PlayerState 创建；在其就绪后统一重绑已存在的控制器。
+	if (AttributeOverlayWidgetController)
+	{
+		AttributeOverlayWidgetController->SetWidgetControllerParams(Params);
+		AttributeOverlayWidgetController->BindCallbacksToDependencies();
+		AttributeOverlayWidgetController->BroadcastInitialValues();
+	}
+
+	if (WeaponOverlayWidgetController)
+	{
+		WeaponOverlayWidgetController->SetWidgetControllerParams(Params);
+		WeaponOverlayWidgetController->BindCallbacksToDependencies();
+		WeaponOverlayWidgetController->BroadcastInitialValues();
+	}
+
+	if (ProgressionOverlayWidgetController)
+	{
+		ProgressionOverlayWidgetController->SetWidgetControllerParams(Params);
+		ProgressionOverlayWidgetController->BindCallbacksToDependencies();
+		ProgressionOverlayWidgetController->BroadcastInitialValues();
+	}
 }

@@ -48,6 +48,7 @@ void ASWWeapon::BeginPlay()
 	}
 
 	CurrentMagazineAmmo = GetEffectiveMagazineCapacity();
+	BindMagazineCapacityMultiplierAuthority();
 	BroadcastAmmoChanged();
 }
 
@@ -208,16 +209,16 @@ UMeshComponent* ASWWeapon::GetActiveWeaponMesh() const
 
 int32 ASWWeapon::GetEffectiveMagazineCapacity() const
 {
-	float CapacityBonusPercent = 0.f;
+	float CapacityMultiplier = 1.f;
 	if (const IAbilitySystemInterface* AbilitySystemOwner = Cast<IAbilitySystemInterface>(GetOwner()))
 	{
 		if (const UAbilitySystemComponent* AbilitySystemComponent = AbilitySystemOwner->GetAbilitySystemComponent())
 		{
-			CapacityBonusPercent = AbilitySystemComponent->GetNumericAttribute(USWAttributeSet::GetMagazineCapacityBonusPercentAttribute());
+			CapacityMultiplier = AbilitySystemComponent->GetNumericAttribute(USWAttributeSet::GetMagazineCapacityMultiplierAttribute());
 		}
 	}
 
-	return FMath::Max(1, FMath::FloorToInt(static_cast<float>(WeaponConfig.MagazineCapacity) * (1.f + CapacityBonusPercent)));
+	return FMath::Max(1, FMath::FloorToInt(static_cast<float>(WeaponConfig.MagazineCapacity) * FMath::Max(0.f, CapacityMultiplier)));
 }
 
 float ASWWeapon::GetEffectiveFireInterval() const
@@ -287,6 +288,41 @@ bool ASWWeapon::BuildAuthoritativeShotDirection(const FTransform& MuzzleTransfor
 void ASWWeapon::BroadcastAmmoChanged()
 {
 	OnAmmoChanged.Broadcast(CurrentMagazineAmmo);
+}
+
+void ASWWeapon::BindMagazineCapacityMultiplierAuthority()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	if (const IAbilitySystemInterface* AbilitySystemOwner = Cast<IAbilitySystemInterface>(GetOwner()))
+	{
+		if (UAbilitySystemComponent* AbilitySystemComponent = AbilitySystemOwner->GetAbilitySystemComponent())
+		{
+			AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(USWAttributeSet::GetMagazineCapacityMultiplierAttribute())
+				.AddUObject(this, &ASWWeapon::HandleMagazineCapacityMultiplierChanged);
+		}
+	}
+}
+
+void ASWWeapon::HandleMagazineCapacityMultiplierChanged(const FOnAttributeChangeData& ChangeData)
+{
+	(void)ChangeData;
+
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	const int32 EffectiveCapacity = GetEffectiveMagazineCapacity();
+	if (CurrentMagazineAmmo > EffectiveCapacity)
+	{
+		// 容量下降不返还溢出弹药；M04 的无限备弹规则下直接截断即可。
+		CurrentMagazineAmmo = EffectiveCapacity;
+		BroadcastAmmoChanged();
+	}
 }
 
 void ASWWeapon::ExecuteOwnerGameplayCue(const FGameplayTag CueTag) const

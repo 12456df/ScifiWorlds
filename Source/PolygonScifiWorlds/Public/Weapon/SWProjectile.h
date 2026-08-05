@@ -55,6 +55,7 @@ protected:
 
 private:
 	void HandleAuthoritativeImpact(const FHitResult& Hit);
+	bool ApplyDamageEffectAuthority(AActor* HitActor);
 
 	bool bInitialized = false;
 	bool bImpactHandled = false;

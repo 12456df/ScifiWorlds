@@ -2,8 +2,11 @@
 
 #include "GameMode/SWGameMode.h"
 
+#include "AbilitySystem/Data/SWProgressionData.h"
+#include "AbilitySystem/SWAbilitySystemComponent.h"
 #include "Character/SWCharacter_Base.h"
 #include "Character/SWCharacter_Player.h"
+#include "Interaction/SWDeathTypes.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameState/SWGameState.h"
@@ -11,6 +14,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Player/SWPlayerController.h"
 #include "Player/SWPlayerState.h"
+#include "TimerManager.h"
 
 namespace
 {
@@ -37,6 +41,26 @@ ASWGameMode::ASWGameMode()
 	GameStateClass = ASWGameState::StaticClass();
 	PlayerControllerClass = ASWPlayerController::StaticClass();
 	PlayerStateClass = ASWPlayerState::StaticClass();
+}
+
+void ASWGameMode::RestartPlayer(AController* NewPlayer)
+{
+	Super::RestartPlayer(NewPlayer);
+
+	if (ASWCharacter_Player* const PlayerCharacter = NewPlayer ? Cast<ASWCharacter_Player>(NewPlayer->GetPawn()) : nullptr)
+	{
+		BindPlayerDeathDelegate(PlayerCharacter);
+	}
+}
+
+void ASWGameMode::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (ASWGameState* SWGameState = GetGameState<ASWGameState>())
+	{
+		SWGameState->SetProgressionDataAuthority(ProgressionData);
+	}
 }
 
 void ASWGameMode::ReportTeamKill(const ESWTeamId TeamId)
@@ -188,10 +212,106 @@ void ASWGameMode::HandleStartingNewPlayer_Implementation(APlayerController* NewP
 
 void ASWGameMode::Logout(AController* Exiting)
 {
+	if (APlayerController* const PlayerController = Cast<APlayerController>(Exiting))
+	{
+		const TWeakObjectPtr<APlayerController> ControllerKey(PlayerController);
+		if (FTimerHandle* const RespawnTimer = PlayerRespawnTimers.Find(ControllerKey))
+		{
+			GetWorldTimerManager().ClearTimer(*RespawnTimer);
+			PlayerRespawnTimers.Remove(ControllerKey);
+		}
+	}
+
 	Super::Logout(Exiting);
 
 	// 父类已把退出玩家标为 Inactive，队伍计数会自动忽略该状态。
 	CancelWarmupIfNoActivePlayers();
+}
+
+void ASWGameMode::BindPlayerDeathDelegate(ASWCharacter_Player* const PlayerCharacter)
+{
+	if (!PlayerCharacter)
+	{
+		return;
+	}
+
+	FSWOnDeath& OnDeath = PlayerCharacter->GetOnDeathDelegate();
+	OnDeath.RemoveAll(this);
+	OnDeath.AddUObject(this, &ThisClass::HandlePlayerDeathAuthority);
+}
+
+void ASWGameMode::HandlePlayerDeathAuthority(const FSWDeathContext& DeathContext)
+{
+	if (!IsPlayerRespawnAllowed())
+	{
+		return;
+	}
+
+	ASWCharacter_Player* const DeadPlayerCharacter = Cast<ASWCharacter_Player>(DeathContext.VictimActor);
+	APlayerController* const PlayerController = DeadPlayerCharacter ? Cast<APlayerController>(DeadPlayerCharacter->GetController()) : nullptr;
+	ASWPlayerState* const PlayerState = PlayerController ? PlayerController->GetPlayerState<ASWPlayerState>() : nullptr;
+	if (!DeadPlayerCharacter || !DeadPlayerCharacter->IsDeadCommitted() || !PlayerController || !PlayerState)
+	{
+		return;
+	}
+
+	const ESWTeamId TeamId = PlayerState->GetTeamId();
+	if (TeamId != ESWTeamId::TeamA && TeamId != ESWTeamId::TeamB)
+	{
+		return;
+	}
+
+	const float RespawnDelaySeconds = ProgressionData
+		? FMath::Max(0.f, ProgressionData->RespawnDelayByLevel.GetValueAtLevel(PlayerState->GetPlayerLevel()))
+		: 0.f;
+	const TWeakObjectPtr<APlayerController> ControllerKey(PlayerController);
+	FTimerHandle& RespawnTimer = PlayerRespawnTimers.FindOrAdd(ControllerKey);
+	GetWorldTimerManager().ClearTimer(RespawnTimer);
+	GetWorldTimerManager().SetTimer(
+		RespawnTimer,
+		FTimerDelegate::CreateUObject(this, &ThisClass::RespawnPlayerAuthority, ControllerKey),
+		RespawnDelaySeconds,
+		false);
+}
+
+void ASWGameMode::RespawnPlayerAuthority(const TWeakObjectPtr<APlayerController> PlayerController)
+{
+	PlayerRespawnTimers.Remove(PlayerController);
+
+	APlayerController* const Controller = PlayerController.Get();
+	ASWPlayerState* const PlayerState = Controller ? Controller->GetPlayerState<ASWPlayerState>() : nullptr;
+	ASWCharacter_Player* const DeadPlayerCharacter = Controller ? Cast<ASWCharacter_Player>(Controller->GetPawn()) : nullptr;
+	if (!IsPlayerRespawnAllowed() || !Controller || !PlayerState || !DeadPlayerCharacter || !DeadPlayerCharacter->IsDeadCommitted())
+	{
+		return;
+	}
+
+	const ESWTeamId TeamId = PlayerState->GetTeamId();
+	if (TeamId != ESWTeamId::TeamA && TeamId != ESWTeamId::TeamB)
+	{
+		return;
+	}
+
+	Controller->UnPossess();
+	DeadPlayerCharacter->Destroy();
+
+	if (USWAbilitySystemComponent* const AbilitySystemComponent = Cast<USWAbilitySystemComponent>(PlayerState->GetAbilitySystemComponent()))
+	{
+		AbilitySystemComponent->SetDeadStateTagAuthority(false);
+	}
+
+	RestartPlayer(Controller);
+
+	if (ASWCharacter_Player* const RespawnedPlayerCharacter = Cast<ASWCharacter_Player>(Controller->GetPawn()))
+	{
+		RespawnedPlayerCharacter->ApplyRespawnInvulnerabilityEffectAuthority();
+	}
+}
+
+bool ASWGameMode::IsPlayerRespawnAllowed() const
+{
+	const FName CurrentMatchState = GetMatchState();
+	return CurrentMatchState == MatchState::WaitingToStart || CurrentMatchState == MatchState::InProgress;
 }
 
 bool ASWGameMode::ReadyToStartMatch_Implementation()

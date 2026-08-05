@@ -102,6 +102,7 @@ void ASWGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	DOREPLIFETIME(ASWGameState, WinningTeam);
 	DOREPLIFETIME(ASWGameState, TeamAStats);
 	DOREPLIFETIME(ASWGameState, TeamBStats);
+	DOREPLIFETIME(ASWGameState, ProgressionData);
 	DOREPLIFETIME(ASWGameState, ServerNetworkSnapshot);
 }
 
@@ -169,6 +170,12 @@ void ASWGameState::RecordTowerDestroyed(const ESWTeamId TeamId)
 	{
 		++TeamMatchStats->TowerDestroyCount;
 	}
+}
+
+void ASWGameState::SetProgressionDataAuthority(USWProgressionData* NewProgressionData)
+{
+	check(HasAuthority());
+	ProgressionData = NewProgressionData;
 }
 
 FSWTeamMatchStats* ASWGameState::GetMutableTeamMatchStats(const ESWTeamId TeamId)

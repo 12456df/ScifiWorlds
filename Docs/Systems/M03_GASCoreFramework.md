@@ -75,13 +75,14 @@ flowchart LR
 | 资源 | `Mana`, `MaxMana` | 当前/最大蓝量；`Mana` 限制在 `[0, MaxMana]`。 |
 | 攻击 | `AttackPower`, `SpellPower` | 物理/法术技能的基础进攻属性。 |
 | 防御 | `PhysicalArmor`, `MagicalArmor` | 物理/法术承伤结算输入。 |
-| 穿透 | `PhysicalPenetration`, `MagicalPenetration` | 攻击方结算输入；不直接改写目标护甲。 |
+| 穿透 | `PhysicalPenetrationPercent`, `MagicalPenetrationPercent` | `0..1` 的百分比穿透；攻击方结算输入，不直接改写目标护甲。 |
+| 穿透 | `PhysicalPenetrationFlat`, `MagicalPenetrationFlat` | 在百分比穿透后扣减的固定护甲值；攻击方结算输入，不在 AttributeSet 层施加数值约束。 |
 | 暴击 | `CriticalChance`, `CriticalDamage` | 暴击概率与暴击伤害结算输入。 |
 | 生存 | `Tenacity`, `PhysicalLifesteal` | 控制时长与物理伤害吸血的结算输入。 |
-| 回复 | `ManaRegeneration`, `HealthRegeneration` | 蓝量/生命自然回复速率输入。 |
-| 技能修正 | `AbilityRangeMultiplier` | 0 表示无修正；`有效范围 = 基础范围 × (1 + 修正值)`。 |
-| 技能修正 | `AbilityDurationMultiplier` | 0 表示无修正；`有效持续时间 = 基础持续时间 × (1 + 修正值)`。 |
-| 技能修正 | `CooldownReductionMultiplier` | 0 表示无修正；`有效冷却 = 基础冷却 × (1 - 修正值)`。 |
+| 回复 | `ManaRegeneration`, `HealthRegeneration`, `StaminaRegeneration` | 蓝量、生命与体力自然回复速率输入。 |
+| 技能修正 | `AbilityRangeBonusPercent` | 0 表示无修正；`有效范围 = 基础范围 × (1 + 修正值)`。 |
+| 技能修正 | `AbilityDurationBonusPercent` | 0 表示无修正；`有效持续时间 = 基础持续时间 × (1 + 修正值)`。 |
+| 技能修正 | `CooldownReductionPercent` | 0 表示无修正；`有效冷却 = 基础冷却 × (1 - 修正值)`。 |
 | 资源 | `Stamina`, `MaxStamina` | 疾跑等行为的当前体力与上限；初始值、消耗和恢复由后续 GE 数据驱动。 |
 | 武器修正 | `MagazineCapacityBonusPercent` | 0 表示无修正；`有效弹匣容量 = floor(基础容量 × (1 + 修正值))`，最小为 1。 |
 | 武器修正 | `FireIntervalReductionPercent` | 0 表示无修正；`有效射击间隔 = 基础间隔 × (1 - 修正值)`，服务器保留最小安全间隔。 |
@@ -115,7 +116,7 @@ M03 仅注册下列稳定根 Tag，避免为未来内容预先制造空分类：
 | `Experience` | `int32` | 服务器 | 所有客户端可读；非负。 |
 | `AbilityPoints` | `int32` | 服务器 | 所有客户端可读；非负。 |
 
-- `ASWPlayerState` 对外提供服务器权威的 `AddExperience`、`SetLevel`/内部升级流程、`GrantAbilityPoints` 与受校验的 `SpendAbilityPoint` 契约；客户端不得直接设置字段。
+- `ASWPlayerState` 对外提供服务器权威的 `AddExperienceAuthority`、`SetLevel`/内部升级流程、`GrantAbilityPoints` 与受校验的 `SpendAbilityPoint` 契约；客户端不得直接设置字段。
 - 等级阈值和每级技能点奖励来自进度数据资产；一次经验变更可跨越多级，按数据顺序逐级结算。缺失或非法配置时服务器拒绝变更并记录可诊断日志。
 - 能力授予与技能等级升级的具体规则留给 M07；M03 只保证技能点跨重生复制并可被后续模块安全消费。
 

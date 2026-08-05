@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerState.h"
 #include "AbilitySystemInterface.h"
+#include "Interaction/SWPlayerProgressionInterface.h"
+#include "Interaction/SWTeamInterface.h"
 #include "Team/SWTeamTypes.h"
 #include "SWPlayerState.generated.h"
 
@@ -27,7 +29,7 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FSWOnProgressionValueChanged, int32 /*NewVal
  * the ASC avatar. The server is the sole writer of Level, Experience and AbilityPoints.
  */
 UCLASS()
-class POLYGONSCIFIWORLDS_API ASWPlayerState : public APlayerState, public IAbilitySystemInterface
+class POLYGONSCIFIWORLDS_API ASWPlayerState : public APlayerState, public IAbilitySystemInterface, public ISWPlayerProgressionInterface, public ISWTeamInterface
 {
 	GENERATED_BODY()
 
@@ -44,7 +46,7 @@ public:
 
 	/** 返回服务器分配的队伍；所有端均可安全读取。 */
 	UFUNCTION(BlueprintPure, Category = "Team")
-	ESWTeamId GetTeamId() const { return TeamId; }
+	virtual ESWTeamId GetTeamId() const override { return TeamId; }
 
 	/** 队伍变化时在服务器与客户端触发，供蓝图表现层订阅。 */
 	UPROPERTY(BlueprintAssignable, Category = "Team")
@@ -52,17 +54,18 @@ public:
 
 	// --- Progression readers (any client may read) ---
 
-	FORCEINLINE int32 GetPlayerLevel() const { return Level; }
-	FORCEINLINE int32 GetExperience() const { return Experience; }
-	FORCEINLINE int32 GetAbilityPoints() const { return AbilityPoints; }
+	virtual int32 GetPlayerLevel() const override { return Level; }
+	virtual int32 GetExperience() const override { return Experience; }
+	virtual int32 GetAbilityPoints() const override { return AbilityPoints; }
+	virtual int32 FindLevelForExperience(int32 TotalExperience) const override;
 
 	// --- Server-authoritative progression writers ---
 	// All mutators no-op off the authority; clients only request intent elsewhere.
 
-	/** Adds experience (non-negative delta). Data-driven level-up processing lands with the progression config (later step). */
-	void AddExperience(int32 DeltaExperience);
+	/** 仅服务器调用：增加非负经验，并根据本局 ProgressionData 结算跨级与技能点。 */
+	virtual void AddExperienceAuthority(int32 DeltaExperience) override;
 
-	/** Sets the current level directly, clamped to a minimum of 1. */
+	/** 仅服务器调用：直接设置等级；有 ProgressionData 时同时限制到其最大等级。 */
 	void SetLevel(int32 NewLevel);
 
 	/** Grants ability points (non-negative delta). */
@@ -83,6 +86,9 @@ protected:
 
 	void SetTeamId(ESWTeamId NewTeamId);
 	bool IsValidTeamId(ESWTeamId TeamIdToValidate) const;
+
+	/** 返回由已复制 GameState 暴露的本局成长配置；只在服务器写入路径中消费。 */
+	const class USWProgressionData* GetProgressionData() const;
 
 	UPROPERTY(VisibleAnywhere, Category = "SW|GAS")
 	TObjectPtr<USWAbilitySystemComponent> AbilitySystemComponent;

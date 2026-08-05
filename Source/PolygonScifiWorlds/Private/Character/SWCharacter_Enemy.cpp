@@ -4,6 +4,7 @@
 
 #include "AbilitySystem/SWAbilitySystemComponent.h"
 #include "AbilitySystem/SWAttributeSet.h"
+#include "Net/UnrealNetwork.h"
 
 ASWCharacter_Enemy::ASWCharacter_Enemy()
 {
@@ -34,6 +35,47 @@ void ASWCharacter_Enemy::InitAbilityActorInfo()
 	// AI 的 Owner 与 Avatar 均为自身。
 	AbilitySystemComponent->InitAbilityActorInfo(this, this);
 
-	// 注意：AI 的基础能力授予与初始属性初始化只应由服务器执行一次，依赖后续数据驱动配置
-	//（M03 实现顺序第 4 项 / 能力授予 M07），此处暂不实现。
+	if (HasAuthority())
+	{
+		SetTeamIdAuthority(TeamId);
+		ApplyCombatantInitializationEffectsAuthority(CombatLevel, true);
+	}
+
+	// AI 的启动能力会在后续能力模块按独立的服务器入口授予。
+}
+
+int32 ASWCharacter_Enemy::GetCombatLevel_Implementation() const
+{
+	return CombatLevel;
+}
+
+ESWTeamId ASWCharacter_Enemy::GetTeamId() const
+{
+	return TeamId;
+}
+
+void ASWCharacter_Enemy::SetTeamIdAuthority(const ESWTeamId NewTeamId)
+{
+	check(HasAuthority());
+
+	if (NewTeamId != ESWTeamId::None && NewTeamId != ESWTeamId::TeamA && NewTeamId != ESWTeamId::TeamB)
+	{
+		ensureMsgf(false, TEXT("敌方单位 %s 收到了无效 TeamId。"), *GetName());
+		return;
+	}
+
+	TeamId = NewTeamId;
+	if (USWAbilitySystemComponent* const SWAbilitySystemComponent = Cast<USWAbilitySystemComponent>(AbilitySystemComponent))
+	{
+		SWAbilitySystemComponent->SetTeamIdTagAuthority(TeamId);
+	}
+
+	ForceNetUpdate();
+}
+
+void ASWCharacter_Enemy::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ASWCharacter_Enemy, TeamId);
 }
