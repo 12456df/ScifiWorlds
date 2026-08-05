@@ -8,6 +8,7 @@
 #include "SWGameState.generated.h"
 
 class ASWGameMode;
+class USWProgressionData;
 
 /**
  * Dedicated Server 采集并复制给所有客户端的网络摘要。
@@ -99,6 +100,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Match")
 	ESWTeamId GetWinningTeam() const { return WinningTeam; }
 
+	/** 返回本局使用的全局成长配置；GameMode 只在服务器设定，GameState 将其复制给客户端 UI。 */
+	UFUNCTION(BlueprintPure, Category = "Progression")
+	const USWProgressionData* GetProgressionData() const { return ProgressionData; }
+
 	/** 返回最近一次由服务器采样并复制的网络摘要。 */
 	UFUNCTION(BlueprintPure, Category = "Network Diagnostics")
 	FSWServerNetworkSnapshot GetServerNetworkSnapshot() const { return ServerNetworkSnapshot; }
@@ -120,6 +125,7 @@ private:
 	void SetWinningTeam(ESWTeamId NewWinningTeam);
 	void RecordTeamKill(ESWTeamId TeamId);
 	void RecordTowerDestroyed(ESWTeamId TeamId);
+	void SetProgressionDataAuthority(USWProgressionData* NewProgressionData);
 
 	FSWTeamMatchStats* GetMutableTeamMatchStats(ESWTeamId TeamId);
 
@@ -145,6 +151,10 @@ private:
 
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Match", meta = (AllowPrivateAccess = "true"))
 	FSWTeamMatchStats TeamBStats;
+
+	/** 本局全局成长配置的已复制只读入口；具体升级规则在 M05 后续步骤消费它。 */
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Progression", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USWProgressionData> ProgressionData;
 
 	/** 服务器每秒更新一次并复制；所有字段均为只读诊断信息。 */
 	UPROPERTY(ReplicatedUsing = OnRep_ServerNetworkSnapshot, BlueprintReadOnly, Category = "Network Diagnostics", meta = (AllowPrivateAccess = "true"))

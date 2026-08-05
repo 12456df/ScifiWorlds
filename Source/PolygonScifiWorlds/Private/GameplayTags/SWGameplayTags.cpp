@@ -33,4 +33,30 @@ namespace SWGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Weapon_Fire, "GameplayCue.Weapon.Fire", "开火纯表现 Cue。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Weapon_Reload, "GameplayCue.Weapon.Reload", "换弹纯表现 Cue。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Projectile_Impact, "GameplayCue.Projectile.Impact", "弹丸命中纯表现 Cue。");
+
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Team_None, "State.Team.None", "未分队或中立单位的队伍镜像。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Team_TeamA, "State.Team.TeamA", "Team A 的队伍镜像。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Team_TeamB, "State.Team.TeamB", "Team B 的队伍镜像。");
+
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Damage_Type_Physical, "Damage.Type.Physical", "物理伤害通道。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Damage_Type_Magical, "Damage.Type.Magical", "魔法伤害通道。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Damage_Type_True, "Damage.Type.True", "真实伤害通道。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Effect_Damage, "Effect.Damage", "造成伤害的 Gameplay Effect 资产 Tag。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Damage_Physical_Base, "SetByCaller.Damage.Physical.Base", "物理伤害基础值。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Damage_Physical_AttackCoefficient, "SetByCaller.Damage.Physical.AttackCoefficient", "物理伤害攻击力系数。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Damage_Physical_SpellCoefficient, "SetByCaller.Damage.Physical.SpellCoefficient", "物理伤害法强系数。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Damage_Magical_Base, "SetByCaller.Damage.Magical.Base", "魔法伤害基础值。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Damage_Magical_AttackCoefficient, "SetByCaller.Damage.Magical.AttackCoefficient", "魔法伤害攻击力系数。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Damage_Magical_SpellCoefficient, "SetByCaller.Damage.Magical.SpellCoefficient", "魔法伤害法强系数。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Damage_True_Base, "SetByCaller.Damage.True.Base", "真实伤害基础值。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Damage_True_AttackCoefficient, "SetByCaller.Damage.True.AttackCoefficient", "真实伤害攻击力系数。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Damage_True_SpellCoefficient, "SetByCaller.Damage.True.SpellCoefficient", "真实伤害法强系数。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Experience, "SetByCaller.Experience", "一次性经验奖励值。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Dead, "State.Dead", "单位已死亡。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Invulnerable, "State.Invulnerable", "单位暂时免疫伤害。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Behavior_SurviveDeath, "Ability.Behavior.SurviveDeath", "死亡时不应被取消的能力。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Combat_DamageResolved, "Event.Combat.DamageResolved", "一次伤害结算完成事件。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Combat_Death, "Event.Combat.Death", "服务器确认死亡事件。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Combat_Hit, "GameplayCue.Combat.Hit", "受击纯表现 Cue。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Combat_Death, "GameplayCue.Combat.Death", "死亡纯表现 Cue。");
 }

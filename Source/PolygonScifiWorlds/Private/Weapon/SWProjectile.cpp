@@ -5,10 +5,12 @@
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystemInterface.h"
+#include "AbilitySystem/SWAbilitySystemComponent.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "GameplayTags/SWGameplayTags.h"
+#include "Interaction/SWCombatInterface.h"
 
 ASWProjectile::ASWProjectile()
 {
@@ -105,6 +107,8 @@ void ASWProjectile::HandleAuthoritativeImpact(const FHitResult& Hit)
 
 	if (AActor* HitActor = Hit.GetActor())
 	{
+		ApplyDamageEffectAuthority(HitActor);
+
 		FGameplayEventData ImpactEvent;
 		ImpactEvent.EventTag = SWGameplayTags::Event_Weapon_ProjectileImpact;
 		ImpactEvent.Instigator = GetInstigator();
@@ -125,4 +129,38 @@ void ASWProjectile::HandleAuthoritativeImpact(const FHitResult& Hit)
 	}
 
 	Destroy();
+}
+
+bool ASWProjectile::ApplyDamageEffectAuthority(AActor* const HitActor)
+{
+	if (!HasAuthority() || !HitActor || !ProjectileConfig.DamageEffectClass)
+	{
+		return false;
+	}
+
+	APawn* const InstigatorPawn = GetInstigator();
+	UAbilitySystemComponent* const SourceAbilitySystemComponent = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(InstigatorPawn);
+	UAbilitySystemComponent* const TargetAbilitySystemComponent = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(HitActor);
+	USWAbilitySystemComponent* const SourceSWAbilitySystemComponent = Cast<USWAbilitySystemComponent>(SourceAbilitySystemComponent);
+	if (!SourceSWAbilitySystemComponent || !TargetAbilitySystemComponent)
+	{
+		return false;
+	}
+
+	if (HitActor->Implements<USWCombatInterface>() && ISWCombatInterface::Execute_IsDead(HitActor))
+	{
+		return false;
+	}
+
+	int32 EffectLevel = 1;
+	if (InstigatorPawn && InstigatorPawn->Implements<USWCombatInterface>())
+	{
+		EffectLevel = FMath::Max(1, ISWCombatInterface::Execute_GetCombatLevel(InstigatorPawn));
+	}
+
+	return SourceSWAbilitySystemComponent->ApplyDamageEffectToTargetAuthority(
+		TargetAbilitySystemComponent,
+		ProjectileConfig.DamageEffectClass,
+		EffectLevel,
+		this);
 }

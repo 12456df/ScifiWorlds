@@ -7,6 +7,8 @@
 #include "AbilitySystemComponent.h"
 #include "SWAttributeSet.generated.h"
 
+struct FGameplayEffectModCallbackData;
+
 // Standard GAS accessor bundle: property getter, value getter/setter and initter.
 #define ATTRIBUTE_ACCESSORS(ClassName, PropertyName) \
 	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(ClassName, PropertyName) \
@@ -63,6 +65,11 @@ public:
 	FGameplayAttributeData MaxStamina;
 	ATTRIBUTE_ACCESSORS(USWAttributeSet, MaxStamina);
 
+	/** 移动速度乘数；1 表示基础速度，后续 GE 可通过聚合修改此值。 */
+	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|Movement", ReplicatedUsing = OnRep_MovementSpeedMultiplier)
+	FGameplayAttributeData MovementSpeedMultiplier;
+	ATTRIBUTE_ACCESSORS(USWAttributeSet, MovementSpeedMultiplier);
+
 	// --- Offense ---
 
 	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|Offense", ReplicatedUsing = OnRep_AttackPower)
@@ -85,13 +92,25 @@ public:
 
 	// --- Penetration ---
 
-	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|Penetration", ReplicatedUsing = OnRep_PhysicalPenetration)
-	FGameplayAttributeData PhysicalPenetration;
-	ATTRIBUTE_ACCESSORS(USWAttributeSet, PhysicalPenetration);
+	/** 物理伤害忽略目标物理护甲的比例，合法范围为 0..1。 */
+	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|Penetration", ReplicatedUsing = OnRep_PhysicalPenetrationPercent)
+	FGameplayAttributeData PhysicalPenetrationPercent;
+	ATTRIBUTE_ACCESSORS(USWAttributeSet, PhysicalPenetrationPercent);
 
-	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|Penetration", ReplicatedUsing = OnRep_MagicalPenetration)
-	FGameplayAttributeData MagicalPenetration;
-	ATTRIBUTE_ACCESSORS(USWAttributeSet, MagicalPenetration);
+	/** 法术伤害忽略目标魔法护甲的比例，合法范围为 0..1。 */
+	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|Penetration", ReplicatedUsing = OnRep_MagicalPenetrationPercent)
+	FGameplayAttributeData MagicalPenetrationPercent;
+	ATTRIBUTE_ACCESSORS(USWAttributeSet, MagicalPenetrationPercent);
+
+	/** 百分比穿透结算后扣减的固定物理护甲值；不在 AttributeSet 层施加数值约束。 */
+	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|Penetration", ReplicatedUsing = OnRep_PhysicalPenetrationFlat)
+	FGameplayAttributeData PhysicalPenetrationFlat;
+	ATTRIBUTE_ACCESSORS(USWAttributeSet, PhysicalPenetrationFlat);
+
+	/** 百分比穿透结算后扣减的固定魔法护甲值；不在 AttributeSet 层施加数值约束。 */
+	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|Penetration", ReplicatedUsing = OnRep_MagicalPenetrationFlat)
+	FGameplayAttributeData MagicalPenetrationFlat;
+	ATTRIBUTE_ACCESSORS(USWAttributeSet, MagicalPenetrationFlat);
 
 	// --- Critical ---
 
@@ -123,30 +142,35 @@ public:
 	FGameplayAttributeData HealthRegeneration;
 	ATTRIBUTE_ACCESSORS(USWAttributeSet, HealthRegeneration);
 
+	/** 每秒自然恢复的体力值；恢复时序由后续 Gameplay Effect 或能力逻辑消费。 */
+	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|Regeneration", ReplicatedUsing = OnRep_StaminaRegeneration)
+	FGameplayAttributeData StaminaRegeneration;
+	ATTRIBUTE_ACCESSORS(USWAttributeSet, StaminaRegeneration);
+
 	// --- Ability modifiers ---
-	// 0 means no modifier. Abilities read a snapshot and apply the unified formulas:
-	//   EffectiveRange    = BaseRange    * (1 + AbilityRangeMultiplier)
-	//   EffectiveDuration = BaseDuration * (1 + AbilityDurationMultiplier)
-	//   EffectiveCooldown = BaseCooldown * (1 - CooldownReductionMultiplier)
+	// 百分比修正属性以 0 表示无修正。Ability 读取快照后按统一公式换算有效值。
+	//   EffectiveRange    = BaseRange    * (1 + AbilityRangeBonusPercent)
+	//   EffectiveDuration = BaseDuration * (1 + AbilityDurationBonusPercent)
+	//   EffectiveCooldown = BaseCooldown * (1 - CooldownReductionPercent)
 
-	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|AbilityMod", ReplicatedUsing = OnRep_AbilityRangeMultiplier)
-	FGameplayAttributeData AbilityRangeMultiplier;
-	ATTRIBUTE_ACCESSORS(USWAttributeSet, AbilityRangeMultiplier);
+	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|AbilityMod", ReplicatedUsing = OnRep_AbilityRangeBonusPercent)
+	FGameplayAttributeData AbilityRangeBonusPercent;
+	ATTRIBUTE_ACCESSORS(USWAttributeSet, AbilityRangeBonusPercent);
 
-	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|AbilityMod", ReplicatedUsing = OnRep_AbilityDurationMultiplier)
-	FGameplayAttributeData AbilityDurationMultiplier;
-	ATTRIBUTE_ACCESSORS(USWAttributeSet, AbilityDurationMultiplier);
+	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|AbilityMod", ReplicatedUsing = OnRep_AbilityDurationBonusPercent)
+	FGameplayAttributeData AbilityDurationBonusPercent;
+	ATTRIBUTE_ACCESSORS(USWAttributeSet, AbilityDurationBonusPercent);
 
-	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|AbilityMod", ReplicatedUsing = OnRep_CooldownReductionMultiplier)
-	FGameplayAttributeData CooldownReductionMultiplier;
-	ATTRIBUTE_ACCESSORS(USWAttributeSet, CooldownReductionMultiplier);
+	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|AbilityMod", ReplicatedUsing = OnRep_CooldownReductionPercent)
+	FGameplayAttributeData CooldownReductionPercent;
+	ATTRIBUTE_ACCESSORS(USWAttributeSet, CooldownReductionPercent);
 
 	// --- Weapon modifiers ---
 
 	/** 对武器基础弹匣容量的百分比加成；0 表示不加成。 */
-	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|WeaponMod", ReplicatedUsing = OnRep_MagazineCapacityBonusPercent)
-	FGameplayAttributeData MagazineCapacityBonusPercent;
-	ATTRIBUTE_ACCESSORS(USWAttributeSet, MagazineCapacityBonusPercent);
+	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|WeaponMod", ReplicatedUsing = OnRep_MagazineCapacityMultiplier)
+	FGameplayAttributeData MagazineCapacityMultiplier;
+	ATTRIBUTE_ACCESSORS(USWAttributeSet, MagazineCapacityMultiplier);
 
 	/** 对射击间隔的百分比减免；0 表示不减免。 */
 	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|WeaponMod", ReplicatedUsing = OnRep_FireIntervalReductionPercent)
@@ -166,6 +190,12 @@ public:
 	ATTRIBUTE_ACCESSORS(USWAttributeSet, IncomingXP);
 
 protected:
+	/** 仅服务器消费伤害 Meta Attribute，并将结果写回真实生命值。 */
+	void ConsumeIncomingDamage(const FGameplayEffectModCallbackData& Data);
+
+	/** 仅服务器消费经验 Meta Attribute，并将结果提交给 PlayerState。 */
+	void ConsumeIncomingXP(const FGameplayEffectModCallbackData& Data);
+
 	// --- Replication callbacks ---
 
 	UFUNCTION()
@@ -187,6 +217,9 @@ protected:
 	void OnRep_MaxStamina(const FGameplayAttributeData& OldValue) const;
 
 	UFUNCTION()
+	void OnRep_MovementSpeedMultiplier(const FGameplayAttributeData& OldValue) const;
+
+	UFUNCTION()
 	void OnRep_AttackPower(const FGameplayAttributeData& OldValue) const;
 
 	UFUNCTION()
@@ -199,10 +232,16 @@ protected:
 	void OnRep_MagicalArmor(const FGameplayAttributeData& OldValue) const;
 
 	UFUNCTION()
-	void OnRep_PhysicalPenetration(const FGameplayAttributeData& OldValue) const;
+	void OnRep_PhysicalPenetrationPercent(const FGameplayAttributeData& OldValue) const;
 
 	UFUNCTION()
-	void OnRep_MagicalPenetration(const FGameplayAttributeData& OldValue) const;
+	void OnRep_MagicalPenetrationPercent(const FGameplayAttributeData& OldValue) const;
+
+	UFUNCTION()
+	void OnRep_PhysicalPenetrationFlat(const FGameplayAttributeData& OldValue) const;
+
+	UFUNCTION()
+	void OnRep_MagicalPenetrationFlat(const FGameplayAttributeData& OldValue) const;
 
 	UFUNCTION()
 	void OnRep_CriticalChance(const FGameplayAttributeData& OldValue) const;
@@ -223,16 +262,19 @@ protected:
 	void OnRep_HealthRegeneration(const FGameplayAttributeData& OldValue) const;
 
 	UFUNCTION()
-	void OnRep_AbilityRangeMultiplier(const FGameplayAttributeData& OldValue) const;
+	void OnRep_StaminaRegeneration(const FGameplayAttributeData& OldValue) const;
 
 	UFUNCTION()
-	void OnRep_AbilityDurationMultiplier(const FGameplayAttributeData& OldValue) const;
+	void OnRep_AbilityRangeBonusPercent(const FGameplayAttributeData& OldValue) const;
 
 	UFUNCTION()
-	void OnRep_CooldownReductionMultiplier(const FGameplayAttributeData& OldValue) const;
+	void OnRep_AbilityDurationBonusPercent(const FGameplayAttributeData& OldValue) const;
 
 	UFUNCTION()
-	void OnRep_MagazineCapacityBonusPercent(const FGameplayAttributeData& OldValue) const;
+	void OnRep_CooldownReductionPercent(const FGameplayAttributeData& OldValue) const;
+
+	UFUNCTION()
+	void OnRep_MagazineCapacityMultiplier(const FGameplayAttributeData& OldValue) const;
 
 	UFUNCTION()
 	void OnRep_FireIntervalReductionPercent(const FGameplayAttributeData& OldValue) const;

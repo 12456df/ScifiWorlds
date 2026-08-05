@@ -8,6 +8,11 @@
 #include "GameplayTagContainer.h"
 #include "SWCharacter_Player.generated.h"
 
+class ASWPlayerState;
+class ASWWeapon;
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FSWOnCurrentWeaponChanged, ASWWeapon*, NewWeapon);
+
 /**
  * 玩家可操控角色。
  *
@@ -21,6 +26,8 @@ class POLYGONSCIFIWORLDS_API ASWCharacter_Player : public ASWCharacter_Base
 
 public:
 	ASWCharacter_Player(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+
+	virtual int32 GetCombatLevel_Implementation() const override;
 
 	//~ Begin AActor/APawn interface
 	virtual void PossessedBy(AController* NewController) override;
@@ -39,7 +46,11 @@ public:
 	void ClearLocalAimCameraSettings();
 
 	/** 返回当前 Pawn 的唯一固定武器；能力只读取得后仍须由服务器执行写入。 */
-	class ASWWeapon* GetCurrentWeapon() const { return CurrentWeapon; }
+	ASWWeapon* GetCurrentWeapon() const { return CurrentWeapon; }
+
+	/** 当前武器在服务器创建或客户端复制到达时广播，供只读 HUD 重新订阅弹药。 */
+	UPROPERTY(BlueprintAssignable, Category = "Weapon")
+	FSWOnCurrentWeaponChanged OnCurrentWeaponChanged;
 
 protected:
 	virtual void BeginPlay() override;
@@ -103,6 +114,13 @@ protected:
 	void BP_OnWeaponReady(class ASWWeapon* Weapon);
 
 private:
+	/** 仅服务器调用：升级后按资源百分比重新应用等级属性，避免免费回满资源。 */
+	void HandlePlayerLevelChanged(int32 NewLevel);
+
+	/** 将当前 Pawn 订阅到其 PlayerState 的等级事件；重生时会自动解除旧订阅。 */
+	void BindPlayerStateProgression(ASWPlayerState* InPlayerState);
+	void UnbindPlayerStateProgression();
+
 	void UpdateLocalCamera(float DeltaTime);
 	void HandleSprintingChanged(bool bIsSprinting);
 	void SetLocalSprintCameraShakeActive(bool bActive);
@@ -114,4 +132,6 @@ private:
 	float CameraTransitionSpeed = 0.f;
 	TObjectPtr<class UCameraShakeBase> ActiveSprintCameraShake;
 	FDelegateHandle SprintStateChangedHandle;
+	TWeakObjectPtr<ASWPlayerState> BoundProgressionPlayerState;
+	FDelegateHandle LevelChangedHandle;
 };

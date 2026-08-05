@@ -295,6 +295,7 @@ M04 使用 UE 5.7 的 `UAnimBlueprint::bIsTemplate` 建立无骨架 Animation Bl
 | `FireMontage` | `TObjectPtr<UAnimMontage>` | 可空；只影响表现 |
 | `ReloadMontage` | `TObjectPtr<UAnimMontage>` | 可空；只影响表现 |
 | `FireGameplayCueTag` | `FGameplayTag` | 必须位于 `GameplayCue.Weapon` |
+| `WeaponIcon` | `TSoftObjectPtr<UTexture2D>` | 拥有者 HUD 图标；Widget 按需异步加载，不参与服务器结算 |
 
 Weapon Actor 同时提供 `USkeletalMeshComponent` 与 `UStaticMeshComponent` 两种视觉槽，适配用户期望的骨骼武器和仓库现有静态武器。蓝图必须只启用其中一个；C++ 通过统一 `UMeshComponent` 查询 Muzzle Socket。
 

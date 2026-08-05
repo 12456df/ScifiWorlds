@@ -2,7 +2,7 @@
 
 **状态：** Approved（Baseline v1）
 **最后更新：** 2026-07-30
-**当前模块：** M04 — 输入、移动、相机与固定武器基础（设计中）
+**当前模块：** M06 — 射击命中结算与扩展（待开始）
 
 ## 目的
 
@@ -21,7 +21,7 @@
 | M02 | 多人 Gameplay Framework | M01 | GameMode、GameState、PlayerController、PlayerState、Character 和队伍基础完成；客户端可加入 DS、分队、生成和退出 | Completed | `feat: establish multiplayer gameplay framework` |
 | M03 | GAS 核心框架 | M02 | ASC、AttributeSet、Ability/Effect 基类、Native Gameplay Tags 与双端初始化完成；复制和重生后重新绑定正确 | Completed | `feat: establish multiplayer GAS foundation` |
 | M04 | 输入、移动、相机与固定武器基础 | M02、M03 | Enhanced Input、第三人称移动、动画模板、镜头、固定武器、弹匣/换弹、瞄准、服务器权威弹丸和最小准星完成；DS 下移动、武器和远端表现正确 | Completed | `feat: add networked character controls and fixed weapon` |
-| M05 | 战斗生命循环 | M03、M04 | 队伍关系、伤害、生命、死亡、重生和临时无敌状态由服务器权威运行并正确复制 | Not Started | `feat: add combat lifecycle` |
+| M05 | 战斗生命循环 | M03、M04 | 队伍关系、等级属性初始化、伤害、生命、击杀经验、死亡、按等级重生和临时无敌由服务器权威运行并正确复制；最小战斗 HUD 与伤害数字接入只读数据源 | Completed | `feat: add combat lifecycle` |
 | M06 | 射击命中结算与扩展 | M04、M05 | 在 M04 固定武器闭环上完成命中扫描/投射物统一契约、伤害接入、角色射击差异化和服务器命中验证 | Not Started | `feat: add authoritative shooting resolution` |
 | M07 | 主动技能框架 | M03、M04、M05 | 扩展 M04 的 Input Tag → GAS Ability 通道，完成技能目标、消耗、冷却、次数、取消、预测和 Gameplay Cue；至少一个样例主动技能通过网络测试 | Not Started | `feat: add gameplay ability pipeline` |
 | M08 | 装备与技能修正 | M03、M07 | 装备定义和修正聚合完成；可按适用性修改伤害、持续时间、范围、冷却和次数 | Not Started | `feat: add equipment ability modifiers` |
@@ -30,7 +30,7 @@
 | M11 | 小兵 AI 与战斗 | M05、M10 | 小兵沿线移动、选择目标、攻击和死亡完整运行；AI 由服务器执行，客户端只接收必要状态 | Not Started | `feat: add networked minion AI` |
 | M12 | 防御塔与水晶 | M05、M10、M11 | 队伍归属、攻击、受击、路线推进约束和水晶状态完成并由服务器权威同步 | Not Started | `feat: add towers and team crystals` |
 | M13 | 完整比赛流程 | M02、M12 | 准备、开始、进行、结束和重置状态完整；摧毁敌方水晶后服务器唯一判定并同步结果 | Not Started | `feat: complete authoritative match flow` |
-| M14 | HUD 与游戏 UI | M03、M08、M09、M13 | 生命、技能、冷却、装备、商店、目标、比赛状态和结算界面完整接入只读数据源 | Not Started | `feat: add gameplay HUD and shop UI` |
+| M14 | HUD 与游戏 UI | M05、M08、M09、M13 | 在 M05 Combat Overlay 基础上完成技能、冷却、装备、商店、目标、比赛状态、计分板和结算界面，并统一完整 HUD 视觉与导航 | Not Started | `feat: add gameplay HUD and shop UI` |
 | M15 | 会话与 DS 部署 | M01、M02、M13 | DS 参数、会话发现、加入、断线处理、服务器构建与部署说明完成 | Not Started | `feat: add dedicated server session flow` |
 | M16 | 垂直切片与加固 | M01–M15 | 至少一个完整角色和三路对局可在 DS 上从加入玩到结算；通过晚加入、重生、断线、丢包、性能和打包测试 | Not Started | `feat: deliver playable multiplayer vertical slice` |
 
@@ -77,6 +77,7 @@ M00 的目标是建立足以安全开始开发的功能方向与技术规范，�
 | M01 | `milestone/m01` | 2026-07-23 | UE 5.7.4 源码引擎、GAS/Enhanced Input、Game/Editor/Server Target、WindowsServer Cook/Stage、DS UDP 7777 与本地客户端连通性均已验证；参数化脚本覆盖构建、Cook 与本地 DS 启动。 |
 | M03 | `cded842` | 2026-07-25 | 玩家 ASC/AttributeSet 归属 PlayerState，服务器与拥有者客户端完成 Owner/Avatar 绑定；原生 Tag、Ability/Effect 基类、进度字段和 AI 自持 ASC 基础完成。Editor/Game/Server Development Target 构建成功，Staged DS 加两客户端完成 GAS 调试验证。 |
 | M04 | `feat: add networked character controls and fixed weapon` | 2026-07-30 | 输入、第三人称移动、相机、动画模板、固定武器、服务器权威弹丸、瞄准/开火/换弹与最小 UI 完成。Development Editor/Game/Server Target 构建成功；Staged DS 加双客户端完成联机功能验证。`WeaponUpperSM` BlendSpace 问题已登记为非阻塞后续项。 |
+| M05 | `feat: add combat lifecycle` | 2026-08-05 | 队伍关系、等级属性初始化、伤害、击杀经验、死亡、重生、临时无敌、战斗 HUD 与伤害数字完成。Development Editor/Game/Server Target 构建成功；Staged DS 加双客户端完成验证。后续动画、命中表现与资源恢复事项已登记至 Linear Backlog。 |
 
 ## 路线图变更规则
 

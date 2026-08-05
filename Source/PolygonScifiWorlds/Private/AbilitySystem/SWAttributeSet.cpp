@@ -2,12 +2,21 @@
 
 #include "AbilitySystem/SWAttributeSet.h"
 
+#include "AbilitySystem/SWAbilityTypes.h"
+#include "GameFramework/Pawn.h"
 #include "GameplayEffectExtension.h"
+#include "Interaction/SWCombatInterface.h"
+#include "Interaction/SWPlayerProgressionInterface.h"
 #include "Net/UnrealNetwork.h"
-#include "Player/SWPlayerState.h"
+#include "Player/SWPlayerController.h"
+#include "UI/DamageNumber/SWDamageNumberTypes.h"
 
 USWAttributeSet::USWAttributeSet()
 {
+	// 乘数属性采用 1 表示无修正；装备与临时 GE 在此基础上聚合。
+	InitMovementSpeedMultiplier(1.f);
+	InitMagazineCapacityMultiplier(1.f);
+	InitCriticalDamage(1.f);
 }
 
 void USWAttributeSet::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -22,6 +31,7 @@ void USWAttributeSet::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, MaxMana, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, Stamina, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, MaxStamina, COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, MovementSpeedMultiplier, COND_None, REPNOTIFY_Always);
 
 	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, AttackPower, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, SpellPower, COND_None, REPNOTIFY_Always);
@@ -29,8 +39,10 @@ void USWAttributeSet::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, PhysicalArmor, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, MagicalArmor, COND_None, REPNOTIFY_Always);
 
-	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, PhysicalPenetration, COND_None, REPNOTIFY_Always);
-	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, MagicalPenetration, COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, PhysicalPenetrationPercent, COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, MagicalPenetrationPercent, COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, PhysicalPenetrationFlat, COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, MagicalPenetrationFlat, COND_None, REPNOTIFY_Always);
 
 	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, CriticalChance, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, CriticalDamage, COND_None, REPNOTIFY_Always);
@@ -40,11 +52,12 @@ void USWAttributeSet::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 
 	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, ManaRegeneration, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, HealthRegeneration, COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, StaminaRegeneration, COND_None, REPNOTIFY_Always);
 
-	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, AbilityRangeMultiplier, COND_None, REPNOTIFY_Always);
-	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, AbilityDurationMultiplier, COND_None, REPNOTIFY_Always);
-	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, CooldownReductionMultiplier, COND_None, REPNOTIFY_Always);
-	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, MagazineCapacityBonusPercent, COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, AbilityRangeBonusPercent, COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, AbilityDurationBonusPercent, COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, CooldownReductionPercent, COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, MagazineCapacityMultiplier, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, FireIntervalReductionPercent, COND_None, REPNOTIFY_Always);
 }
 
@@ -82,6 +95,10 @@ void USWAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, fl
 		NewValue = FMath::Max(0.f, NewValue);
 		SetStamina(FMath::Clamp(GetStamina(), 0.f, NewValue));
 	}
+	else if (Attribute == GetPhysicalPenetrationPercentAttribute() || Attribute == GetMagicalPenetrationPercentAttribute())
+	{
+		NewValue = FMath::Clamp(NewValue, 0.f, 1.f);
+	}
 }
 
 void USWAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data)
@@ -101,28 +118,96 @@ void USWAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallback
 	{
 		SetStamina(FMath::Clamp(GetStamina(), 0.f, GetMaxStamina()));
 	}
+	else if (Data.EvaluatedData.Attribute == GetPhysicalPenetrationPercentAttribute())
+	{
+		SetPhysicalPenetrationPercent(FMath::Clamp(GetPhysicalPenetrationPercent(), 0.f, 1.f));
+	}
+	else if (Data.EvaluatedData.Attribute == GetMagicalPenetrationPercentAttribute())
+	{
+		SetMagicalPenetrationPercent(FMath::Clamp(GetMagicalPenetrationPercent(), 0.f, 1.f));
+	}
 	else if (Data.EvaluatedData.Attribute == GetIncomingDamageAttribute())
 	{
-		const float Damage = FMath::Max(0.f, GetIncomingDamage());
-		SetIncomingDamage(0.f);
-
-		if (Damage > 0.f)
-		{
-			SetHealth(FMath::Clamp(GetHealth() - Damage, 0.f, GetMaxHealth()));
-		}
+		ConsumeIncomingDamage(Data);
 	}
 	else if (Data.EvaluatedData.Attribute == GetIncomingXPAttribute())
 	{
-		const int32 ExperienceToGrant = FMath::Max(0, FMath::FloorToInt(GetIncomingXP()));
-		SetIncomingXP(0.f);
+		ConsumeIncomingXP(Data);
+	}
+}
 
-		if (ExperienceToGrant > 0)
+void USWAttributeSet::ConsumeIncomingDamage(const FGameplayEffectModCallbackData& Data)
+{
+	AActor* const TargetOwner = Data.Target.GetOwnerActor();
+	const float Damage = FMath::Max(0.f, GetIncomingDamage());
+	SetIncomingDamage(0.f);
+
+	// Damage GE 的执行计算仅应在服务器写入 Meta Attribute；此处再次收口，避免预测或误用 GE 改写权威生命值。
+	if (!TargetOwner || !TargetOwner->HasAuthority() || Damage <= 0.f)
+	{
+		return;
+	}
+
+	const float HealthBeforeDamage = GetHealth();
+	const float AppliedDamage = FMath::Min(HealthBeforeDamage, Damage);
+	SetHealth(FMath::Clamp(HealthBeforeDamage - Damage, 0.f, GetMaxHealth()));
+
+	const FGameplayEffectContextHandle& EffectContext = Data.EffectSpec.GetContext();
+	const FGameplayEffectContext* const RawContext = EffectContext.Get();
+	const FSWGameplayEffectContext* const SWContext = RawContext && RawContext->GetScriptStruct() == FSWGameplayEffectContext::StaticStruct()
+		? static_cast<const FSWGameplayEffectContext*>(RawContext)
+		: nullptr;
+	AActor* const TargetAvatar = Data.Target.GetAvatarActor();
+	if (APawn* const InstigatorPawn = Cast<APawn>(EffectContext.GetOriginalInstigator()))
+	{
+		if (ASWPlayerController* const SourcePlayerController = Cast<ASWPlayerController>(InstigatorPawn->GetController()))
 		{
-			if (ASWPlayerState* PlayerState = Cast<ASWPlayerState>(Data.Target.GetOwnerActor()))
-			{
-				PlayerState->AddExperience(ExperienceToGrant);
-			}
+			FSWDamageNumberPayload Payload;
+			Payload.AppliedDamage = AppliedDamage;
+			Payload.DamageType = SWContext ? SWContext->GetDamageType() : FGameplayTag();
+			Payload.bCritical = SWContext && SWContext->IsCriticalHit();
+			Payload.TargetActor = TargetAvatar;
+			Payload.WorldLocation = TargetAvatar ? TargetAvatar->GetActorLocation() : TargetOwner->GetActorLocation();
+			SourcePlayerController->ClientShowDamageNumber(Payload);
 		}
+	}
+
+	if (GetHealth() > 0.f)
+	{
+		return;
+	}
+
+	ISWCombatInterface* const Combatant = TargetAvatar ? Cast<ISWCombatInterface>(TargetAvatar) : nullptr;
+	if (!Combatant)
+	{
+		return;
+	}
+
+	FSWDeathContext DeathContext;
+	DeathContext.VictimActor = TargetAvatar;
+	DeathContext.InstigatorActor = EffectContext.GetOriginalInstigator();
+	DeathContext.EffectCauser = EffectContext.GetEffectCauser();
+	DeathContext.AppliedDamage = AppliedDamage;
+	Combatant->TryCommitDeathAuthority(DeathContext);
+}
+
+void USWAttributeSet::ConsumeIncomingXP(const FGameplayEffectModCallbackData& Data)
+{
+	AActor* const TargetOwner = Data.Target.GetOwnerActor();
+	const float IncomingExperience = GetIncomingXP();
+	const int32 ExperienceToGrant = !FMath::IsFinite(IncomingExperience) || IncomingExperience <= 0.f
+		? 0
+		: (IncomingExperience >= static_cast<float>(MAX_int32) ? MAX_int32 : FMath::FloorToInt(IncomingExperience));
+	SetIncomingXP(0.f);
+
+	if (!TargetOwner || !TargetOwner->HasAuthority() || ExperienceToGrant <= 0)
+	{
+		return;
+	}
+
+	if (ISWPlayerProgressionInterface* const PlayerProgression = Cast<ISWPlayerProgressionInterface>(TargetOwner))
+	{
+		PlayerProgression->AddExperienceAuthority(ExperienceToGrant);
 	}
 }
 
@@ -156,6 +241,11 @@ void USWAttributeSet::OnRep_MaxStamina(const FGameplayAttributeData& OldValue) c
 	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, MaxStamina, OldValue);
 }
 
+void USWAttributeSet::OnRep_MovementSpeedMultiplier(const FGameplayAttributeData& OldValue) const
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, MovementSpeedMultiplier, OldValue);
+}
+
 void USWAttributeSet::OnRep_AttackPower(const FGameplayAttributeData& OldValue) const
 {
 	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, AttackPower, OldValue);
@@ -176,14 +266,24 @@ void USWAttributeSet::OnRep_MagicalArmor(const FGameplayAttributeData& OldValue)
 	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, MagicalArmor, OldValue);
 }
 
-void USWAttributeSet::OnRep_PhysicalPenetration(const FGameplayAttributeData& OldValue) const
+void USWAttributeSet::OnRep_PhysicalPenetrationPercent(const FGameplayAttributeData& OldValue) const
 {
-	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, PhysicalPenetration, OldValue);
+	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, PhysicalPenetrationPercent, OldValue);
 }
 
-void USWAttributeSet::OnRep_MagicalPenetration(const FGameplayAttributeData& OldValue) const
+void USWAttributeSet::OnRep_MagicalPenetrationPercent(const FGameplayAttributeData& OldValue) const
 {
-	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, MagicalPenetration, OldValue);
+	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, MagicalPenetrationPercent, OldValue);
+}
+
+void USWAttributeSet::OnRep_PhysicalPenetrationFlat(const FGameplayAttributeData& OldValue) const
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, PhysicalPenetrationFlat, OldValue);
+}
+
+void USWAttributeSet::OnRep_MagicalPenetrationFlat(const FGameplayAttributeData& OldValue) const
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, MagicalPenetrationFlat, OldValue);
 }
 
 void USWAttributeSet::OnRep_CriticalChance(const FGameplayAttributeData& OldValue) const
@@ -216,24 +316,29 @@ void USWAttributeSet::OnRep_HealthRegeneration(const FGameplayAttributeData& Old
 	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, HealthRegeneration, OldValue);
 }
 
-void USWAttributeSet::OnRep_AbilityRangeMultiplier(const FGameplayAttributeData& OldValue) const
+void USWAttributeSet::OnRep_StaminaRegeneration(const FGameplayAttributeData& OldValue) const
 {
-	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, AbilityRangeMultiplier, OldValue);
+	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, StaminaRegeneration, OldValue);
 }
 
-void USWAttributeSet::OnRep_AbilityDurationMultiplier(const FGameplayAttributeData& OldValue) const
+void USWAttributeSet::OnRep_AbilityRangeBonusPercent(const FGameplayAttributeData& OldValue) const
 {
-	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, AbilityDurationMultiplier, OldValue);
+	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, AbilityRangeBonusPercent, OldValue);
 }
 
-void USWAttributeSet::OnRep_CooldownReductionMultiplier(const FGameplayAttributeData& OldValue) const
+void USWAttributeSet::OnRep_AbilityDurationBonusPercent(const FGameplayAttributeData& OldValue) const
 {
-	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, CooldownReductionMultiplier, OldValue);
+	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, AbilityDurationBonusPercent, OldValue);
 }
 
-void USWAttributeSet::OnRep_MagazineCapacityBonusPercent(const FGameplayAttributeData& OldValue) const
+void USWAttributeSet::OnRep_CooldownReductionPercent(const FGameplayAttributeData& OldValue) const
 {
-	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, MagazineCapacityBonusPercent, OldValue);
+	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, CooldownReductionPercent, OldValue);
+}
+
+void USWAttributeSet::OnRep_MagazineCapacityMultiplier(const FGameplayAttributeData& OldValue) const
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, MagazineCapacityMultiplier, OldValue);
 }
 
 void USWAttributeSet::OnRep_FireIntervalReductionPercent(const FGameplayAttributeData& OldValue) const

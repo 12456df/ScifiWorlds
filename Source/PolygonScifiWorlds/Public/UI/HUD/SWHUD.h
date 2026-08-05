@@ -8,6 +8,9 @@
 
 class USWUserWidget;
 class USWNetworkDiagnosticsWidgetController;
+class USWAttributeOverlayWidgetController;
+class USWWeaponOverlayWidgetController;
+class USWProgressionOverlayWidgetController;
 
 /**
  * 本地游戏 UI 的根创建入口。
@@ -36,6 +39,24 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "UI|Network Diagnostics")
 	USWNetworkDiagnosticsWidgetController* GetNetworkDiagnosticsWidgetController();
 
+	/** 返回本地玩家的生命、蓝量与体力 Overlay 数据控制器。 */
+	UFUNCTION(BlueprintCallable, Category = "UI|Overlay")
+	USWAttributeOverlayWidgetController* GetAttributeOverlayWidgetController();
+
+	/** 返回本地玩家的弹匣 Overlay 数据控制器。 */
+	UFUNCTION(BlueprintCallable, Category = "UI|Overlay")
+	USWWeaponOverlayWidgetController* GetWeaponOverlayWidgetController();
+
+	/** 返回本地玩家的等级与经验 Overlay 数据控制器。 */
+	UFUNCTION(BlueprintCallable, Category = "UI|Overlay")
+	USWProgressionOverlayWidgetController* GetProgressionOverlayWidgetController();
+
+	/**
+	 * 本地 PlayerState 或 GameState 就绪后，重新绑定已创建的 Overlay 控制器。
+	 * 仅刷新客户端只读 UI 数据，不写入任何游戏状态。
+	 */
+	void RefreshOverlayWidgetControllers();
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -54,4 +75,25 @@ protected:
 	/** 本地 HUD 缓存的只读网络诊断数据控制器。 */
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "UI|Network Diagnostics")
 	TObjectPtr<USWNetworkDiagnosticsWidgetController> NetworkDiagnosticsWidgetController;
+
+	/** 可由 HUD 蓝图替换的属性 Overlay 数据控制器。 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Overlay")
+	TSubclassOf<USWAttributeOverlayWidgetController> AttributeOverlayWidgetControllerClass;
+
+	/** 可由 HUD 蓝图替换的武器 Overlay 数据控制器。 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Overlay")
+	TSubclassOf<USWWeaponOverlayWidgetController> WeaponOverlayWidgetControllerClass;
+
+	/** 可由 HUD 蓝图替换的成长 Overlay 数据控制器。 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Overlay")
+	TSubclassOf<USWProgressionOverlayWidgetController> ProgressionOverlayWidgetControllerClass;
+
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "UI|Overlay")
+	TObjectPtr<USWAttributeOverlayWidgetController> AttributeOverlayWidgetController;
+
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "UI|Overlay")
+	TObjectPtr<USWWeaponOverlayWidgetController> WeaponOverlayWidgetController;
+
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "UI|Overlay")
+	TObjectPtr<USWProgressionOverlayWidgetController> ProgressionOverlayWidgetController;
 };

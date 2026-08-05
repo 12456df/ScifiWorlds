@@ -8,6 +8,7 @@
 #include "SWWeaponTypes.generated.h"
 
 class UAnimMontage;
+class UTexture2D;
 
 /** 固定武器的静态配置；由武器蓝图 Defaults 提供，运行时状态由服务器持有。 */
 USTRUCT(BlueprintType)
@@ -62,6 +63,10 @@ struct FSWWeaponConfig
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon|Cue")
 	FGameplayTag FireGameplayCueTag;
+
+	/** 武器 HUD 图标；作为软引用由拥有者 UI 按需加载，不影响服务器权威结算。 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon|UI")
+	TSoftObjectPtr<UTexture2D> WeaponIcon;
 
 	bool IsValidForFire() const;
 };

@@ -21,19 +21,24 @@ class POLYGONSCIFIWORLDS_API USWGameplayAbility : public UGameplayAbility
 	GENERATED_BODY()
 
 public:
+	/** 所有项目 Ability 的统一死亡门槛；服务器和预测端均拒绝已死亡 Avatar 的新激活。 */
+	virtual bool CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+		const FGameplayTagContainer* SourceTags = nullptr, const FGameplayTagContainer* TargetTags = nullptr,
+		OUT FGameplayTagContainer* OptionalRelevantTags = nullptr) const override;
+
 	/** 仅供派生 Ability 蓝图调用，向当前 Avatar 的 CMC 写入疾跑预测意图。 */
 	UFUNCTION(BlueprintCallable, Category = "SW|Movement")
 	void SetAvatarSprintRequested(bool bRequested) const;
 
-	/** 有效范围 = 基础范围 × (1 + AbilityRangeMultiplier)。无 ASC 时按无修正处理。 */
+	/** 有效范围 = 基础范围 × (1 + AbilityRangeBonusPercent)。无 ASC 时按无修正处理。 */
 	UFUNCTION(BlueprintPure, Category = "SW|Ability")
 	float GetEffectiveRange(float BaseRange) const;
 
-	/** 有效持续时间 = 基础持续时间 × (1 + AbilityDurationMultiplier)。无 ASC 时按无修正处理。 */
+	/** 有效持续时间 = 基础持续时间 × (1 + AbilityDurationBonusPercent)。无 ASC 时按无修正处理。 */
 	UFUNCTION(BlueprintPure, Category = "SW|Ability")
 	float GetEffectiveDuration(float BaseDuration) const;
 
-	/** 有效冷却 = 基础冷却 × (1 - CooldownReductionMultiplier)。结果钳制为非负。 */
+	/** 有效冷却 = 基础冷却 × (1 - CooldownReductionPercent)。结果钳制为非负。 */
 	UFUNCTION(BlueprintPure, Category = "SW|Ability")
 	float GetEffectiveCooldown(float BaseCooldown) const;
 

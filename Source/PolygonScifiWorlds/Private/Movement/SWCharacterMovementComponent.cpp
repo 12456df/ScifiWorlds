@@ -4,6 +4,7 @@
 
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemInterface.h"
+#include "AbilitySystem/SWAttributeSet.h"
 #include "GameplayTags/SWGameplayTags.h"
 #include "GameFramework/Character.h"
 
@@ -128,12 +129,27 @@ float USWCharacterMovementComponent::GetMaxSpeed() const
 		return Super::GetMaxSpeed();
 	}
 
+	float BaseSpeed = WalkSpeed;
 	if (IsCrouching())
 	{
-		return CrouchSpeed;
+		BaseSpeed = CrouchSpeed;
+	}
+	else if (CanSprint())
+	{
+		BaseSpeed = SprintSpeed;
 	}
 
-	return CanSprint() ? SprintSpeed : WalkSpeed;
+	float MovementSpeedMultiplier = 1.f;
+	if (const IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(CharacterOwner))
+	{
+		if (const UAbilitySystemComponent* AbilitySystemComponent = AbilitySystemInterface->GetAbilitySystemComponent())
+		{
+			MovementSpeedMultiplier = AbilitySystemComponent->GetNumericAttribute(USWAttributeSet::GetMovementSpeedMultiplierAttribute());
+		}
+	}
+
+	// 具体上下限由后续数据资产配置；此处仅防止非法属性让 CMC 返回负速度。
+	return BaseSpeed * FMath::Max(0.01f, MovementSpeedMultiplier);
 }
 
 void USWCharacterMovementComponent::UpdateFromCompressedFlags(const uint8 Flags)

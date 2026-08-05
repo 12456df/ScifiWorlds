@@ -7,6 +7,7 @@
 #include "Engine/LocalPlayer.h"
 #include "Input/SWInputConfig.h"
 #include "Player/SWPlayerState.h"
+#include "UI/HUD/SWHUD.h"
 
 void ASWPlayerController::BeginPlay()
 {
@@ -15,11 +16,25 @@ void ASWPlayerController::BeginPlay()
 	ApplyGameplayMappingContext();
 }
 
+void ASWPlayerController::BeginPlayingState()
+{
+	Super::BeginPlayingState();
+
+	RefreshOverlayWidgetControllers();
+}
+
 void ASWPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	RemoveGameplayMappingContext();
 
 	Super::EndPlay(EndPlayReason);
+}
+
+void ASWPlayerController::OnRep_PlayerState()
+{
+	Super::OnRep_PlayerState();
+
+	RefreshOverlayWidgetControllers();
 }
 
 void ASWPlayerController::PostProcessInput(const float DeltaTime, const bool bGamePaused)
@@ -33,6 +48,16 @@ void ASWPlayerController::PostProcessInput(const float DeltaTime, const bool bGa
 			AbilitySystemComponent->ProcessAbilityInput(DeltaTime, bGamePaused);
 		}
 	}
+}
+
+void ASWPlayerController::ClientShowDamageNumber_Implementation(const FSWDamageNumberPayload& Payload)
+{
+	if (!IsLocalController())
+	{
+		return;
+	}
+
+	BP_ShowDamageNumber(Payload);
 }
 
 void ASWPlayerController::ApplyGameplayMappingContext()
@@ -64,5 +89,18 @@ void ASWPlayerController::RemoveGameplayMappingContext()
 		{
 			InputSubsystem->RemoveMappingContext(InputConfig->DefaultMappingContext);
 		}
+	}
+}
+
+void ASWPlayerController::RefreshOverlayWidgetControllers()
+{
+	if (!IsLocalController())
+	{
+		return;
+	}
+
+	if (ASWHUD* SWHUD = GetHUD<ASWHUD>())
+	{
+		SWHUD->RefreshOverlayWidgetControllers();
 	}
 }

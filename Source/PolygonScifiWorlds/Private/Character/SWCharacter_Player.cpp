@@ -4,6 +4,7 @@
 
 #include "AbilitySystemComponent.h"
 #include "AbilitySystem/SWAbilitySystemComponent.h"
+#include "AbilitySystem/SWAttributeSet.h"
 #include "Camera/CameraShakeBase.h"
 #include "Camera/CameraComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -90,6 +91,7 @@ void ASWCharacter_Player::Tick(const float DeltaTime)
 void ASWCharacter_Player::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	SetLocalSprintCameraShakeActive(false);
+	UnbindPlayerStateProgression();
 
 	if (USWCharacterMovementComponent* MovementComponent = GetCharacterMovement<USWCharacterMovementComponent>(); MovementComponent && SprintStateChangedHandle.IsValid())
 	{
@@ -287,6 +289,11 @@ void ASWCharacter_Player::UpdateLocalCamera(const float DeltaTime)
 
 void ASWCharacter_Player::Move(const FInputActionValue& InputActionValue)
 {
+	if (IsDead_Implementation())
+	{
+		return;
+	}
+
 	const FVector2D MovementInput = InputActionValue.Get<FVector2D>();
 	if (!Controller)
 	{
@@ -301,6 +308,11 @@ void ASWCharacter_Player::Move(const FInputActionValue& InputActionValue)
 
 void ASWCharacter_Player::Look(const FInputActionValue& InputActionValue)
 {
+	if (IsDead_Implementation())
+	{
+		return;
+	}
+
 	const FVector2D LookInput = InputActionValue.Get<FVector2D>();
 	AddControllerYawInput(LookInput.X);
 	AddControllerPitchInput(LookInput.Y);
@@ -308,6 +320,11 @@ void ASWCharacter_Player::Look(const FInputActionValue& InputActionValue)
 
 void ASWCharacter_Player::StartJump()
 {
+	if (IsDead_Implementation())
+	{
+		return;
+	}
+
 	Jump();
 }
 
@@ -318,6 +335,11 @@ void ASWCharacter_Player::StopJump()
 
 void ASWCharacter_Player::ToggleCrouch()
 {
+	if (IsDead_Implementation())
+	{
+		return;
+	}
+
 	if (bIsCrouched)
 	{
 		UnCrouch();
@@ -330,6 +352,11 @@ void ASWCharacter_Player::ToggleCrouch()
 
 void ASWCharacter_Player::AbilityInputTagPressed(const FGameplayTag InputTag)
 {
+	if (IsDead_Implementation())
+	{
+		return;
+	}
+
 	if (USWAbilitySystemComponent* SWAbilitySystemComponent = Cast<USWAbilitySystemComponent>(GetAbilitySystemComponent()))
 	{
 		SWAbilitySystemComponent->AbilityInputTagPressed(InputTag);
@@ -338,6 +365,11 @@ void ASWCharacter_Player::AbilityInputTagPressed(const FGameplayTag InputTag)
 
 void ASWCharacter_Player::AbilityInputTagReleased(const FGameplayTag InputTag)
 {
+	if (IsDead_Implementation())
+	{
+		return;
+	}
+
 	if (USWAbilitySystemComponent* SWAbilitySystemComponent = Cast<USWAbilitySystemComponent>(GetAbilitySystemComponent()))
 	{
 		SWAbilitySystemComponent->AbilityInputTagReleased(InputTag);
@@ -368,6 +400,9 @@ void ASWCharacter_Player::InitAbilityActorInfo()
 
 	if (HasAuthority())
 	{
+		BindPlayerStateProgression(SWPlayerState);
+		ApplyCombatantInitializationEffectsAuthority(SWPlayerState->GetPlayerLevel(), true);
+
 		if (USWAbilitySystemComponent* SWAbilitySystemComponent = Cast<USWAbilitySystemComponent>(PlayerASC))
 		{
 			SWAbilitySystemComponent->GrantStartupAbilities(StartupAbilities);
@@ -379,6 +414,59 @@ void ASWCharacter_Player::InitAbilityActorInfo()
 	// 注意：基础能力授予与初始化 Gameplay Effect 只应由服务器在“首次有效绑定”后执行一次，
 	// 且需显式的已初始化保护。相关逻辑依赖数据驱动的进度/初始属性配置（M03 实现顺序第 4 项 /
 	// M04 的启动技能由服务器授予，并由 ASC 按 Ability Class 去重；重生后只更新 Avatar，不重复创建 Spec。
+}
+
+void ASWCharacter_Player::BindPlayerStateProgression(ASWPlayerState* const InPlayerState)
+{
+	if (BoundProgressionPlayerState.Get() == InPlayerState && LevelChangedHandle.IsValid())
+	{
+		return;
+	}
+
+	UnbindPlayerStateProgression();
+	if (!InPlayerState)
+	{
+		return;
+	}
+
+	BoundProgressionPlayerState = InPlayerState;
+	LevelChangedHandle = InPlayerState->OnLevelChanged.AddUObject(this, &ThisClass::HandlePlayerLevelChanged);
+}
+
+int32 ASWCharacter_Player::GetCombatLevel_Implementation() const
+{
+	const ASWPlayerState* const SWPlayerState = GetPlayerState<ASWPlayerState>();
+	return SWPlayerState ? SWPlayerState->GetPlayerLevel() : 1;
+}
+
+void ASWCharacter_Player::UnbindPlayerStateProgression()
+{
+	if (ASWPlayerState* const BoundPlayerState = BoundProgressionPlayerState.Get(); BoundPlayerState && LevelChangedHandle.IsValid())
+	{
+		BoundPlayerState->OnLevelChanged.Remove(LevelChangedHandle);
+	}
+
+	LevelChangedHandle.Reset();
+	BoundProgressionPlayerState.Reset();
+}
+
+void ASWCharacter_Player::HandlePlayerLevelChanged(const int32 NewLevel)
+{
+	if (!HasAuthority() || !AttributeSet)
+	{
+		return;
+	}
+
+	// 升级不免费回满资源：先记录比例，应用新的最大值后恢复相同比例。
+	const float HealthPercent = AttributeSet->GetMaxHealth() > 0.f ? AttributeSet->GetHealth() / AttributeSet->GetMaxHealth() : 0.f;
+	const float ManaPercent = AttributeSet->GetMaxMana() > 0.f ? AttributeSet->GetMana() / AttributeSet->GetMaxMana() : 0.f;
+	const float StaminaPercent = AttributeSet->GetMaxStamina() > 0.f ? AttributeSet->GetStamina() / AttributeSet->GetMaxStamina() : 0.f;
+
+	ApplyCombatantInitializationEffectsAuthority(NewLevel, false);
+
+	AttributeSet->SetHealth(FMath::Clamp(AttributeSet->GetMaxHealth() * HealthPercent, 0.f, AttributeSet->GetMaxHealth()));
+	AttributeSet->SetMana(FMath::Clamp(AttributeSet->GetMaxMana() * ManaPercent, 0.f, AttributeSet->GetMaxMana()));
+	AttributeSet->SetStamina(FMath::Clamp(AttributeSet->GetMaxStamina() * StaminaPercent, 0.f, AttributeSet->GetMaxStamina()));
 }
 
 void ASWCharacter_Player::SpawnDefaultWeaponAuthority()
@@ -412,10 +500,12 @@ void ASWCharacter_Player::SpawnDefaultWeaponAuthority()
 
 	CurrentWeapon = SpawnedWeapon;
 	ForceNetUpdate();
+	OnCurrentWeaponChanged.Broadcast(CurrentWeapon);
 	BP_OnWeaponReady(CurrentWeapon);
 }
 
 void ASWCharacter_Player::OnRep_CurrentWeapon()
 {
+	OnCurrentWeaponChanged.Broadcast(CurrentWeapon);
 	BP_OnWeaponReady(CurrentWeapon);
 }
