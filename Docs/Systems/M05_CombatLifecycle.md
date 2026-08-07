@@ -58,7 +58,7 @@ M05 将该需求解释为：**玩家重生等待时间由死亡时的角色等�
 - FR-02：移动速度乘数变化后，走路、疾跑和下蹲的有效速度应同步变化；服务端和自主代理不得长期分歧。
 - FR-03：弹匣容量乘数变化后，Weapon 应重新计算有效容量；当前弹药仍由 `ASWWeapon` 唯一拥有。
 - FR-04：每个可战斗单位应能查询唯一 `ESWTeamId`，ASC 同时拥有且只拥有一个对应的 `State.Team.*` Tag。
-- FR-05：Gameplay Effect 应按 `SelfOnly`、`AlliesOnly`、`AlliesAndSelf`、`EnemiesOnly` 或 `Any` 目标策略决定是否应用。
+- FR-05：任何需要队伍限制的伤害、Buff 或治疗入口都应复用 `USWGameplayEffect` 的唯一同队查询；M05 不建立通用 Effect Target Policy 框架。
 - FR-06：M04 弹丸命中有效敌方 ASC 后，应由服务器创建伤害 Effect Spec 并执行 `USWExecCalc_Damage`。
 - FR-07：伤害计算应支持物理、魔法和真实伤害，读取进攻、防御、穿透、暴击和物理吸血属性，并将最终值写入 `IncomingDamage`。
 - FR-08：`IncomingDamage` 应一次性扣减 Health，产生一份结构化伤害结果；同一次致死命中只允许提交一次死亡。
@@ -187,7 +187,7 @@ EffectiveMagazineCapacity =
 
 具体默认数值和安全上限由初始化 GE 与 `USWDamageCalculationConfig` 配置，不写死在伤害函数中。
 
-## 6. 队伍 Tag 与 Gameplay Effect 目标策略
+## 6. 队伍 Tag 与 Gameplay Effect 队伍关系
 
 ### 6.1 TeamId 与 Team Tag
 
@@ -210,21 +210,11 @@ TeamA 与 TeamB                    -> Enemy
 任意一侧为 None/缺失              -> Neutral
 ```
 
-### 6.2 Effect Target Policy
+### 6.2 队伍关系使用规则
 
-当前 `USWGameplayEffect` 已提供 `AreSourceAndTargetOnSameTeam` 与 ASC 版本的同队查询：优先从两个 ASC 的 Owner，再从 Avatar 上的 `ISWTeamInterface` 读取 `ESWTeamId`；只有相同且不为 `None` 才返回 `true`。因此 PlayerState ASC、Enemy 自持 ASC 以及后续塔/水晶都可复用同一查询。Damage、Buff、Debuff 均可复用该只读查询；完整 `Target Policy` 与 Application Requirement 在下一步接入此函数。
+当前 `USWGameplayEffect` 已提供 `AreSourceAndTargetOnSameTeam` 与 ASC 版本的同队查询：优先从两个 ASC 的 Owner，再从 Avatar 上的 `ISWTeamInterface` 读取 `ESWTeamId`；只有相同且不为 `None` 才返回 `true`。因此 PlayerState ASC、Enemy 自持 ASC 以及后续塔/水晶都可复用同一查询。Damage、Buff、Debuff 均可复用该只读查询；当前不预设完整 `Target Policy` 或 Application Requirement。
 
-`USWGameplayEffect` 新增 `ESWEffectTargetPolicy` Class Default：
-
-- `Any`
-- `SelfOnly`
-- `AlliesOnly`
-- `AlliesAndSelf`
-- `EnemiesOnly`
-
-`USWGameplayEffect` 的 C++ 构造函数自动添加 UE 5.7 的 `UCustomCanApplyGameplayEffectComponent` 和 `USWTeamEffectApplicationRequirement`。Requirement 从 Source/Target ASC 查询 Team Tag，并调用唯一的关系函数。
-
-所有项目 Gameplay Effect 必须派生自 `USWGameplayEffect`。伤害 GE 默认 `EnemiesOnly`；自我初始化 GE 使用 `SelfOnly`；友军 Buff 使用 `AlliesAndSelf` 或 `AlliesOnly`。`USWExecCalc_Damage` 再调用同一关系函数做防御性早退，避免误用原生 `UGameplayEffect` 时出现友伤。
+项目当前只有伤害需要明确区分敌我，因此由 `USWExecCalc_Damage` 在服务器结算时调用该关系函数并拒绝同队目标。自我初始化 GE 只通过 `ApplyGameplayEffectSpecToSelf` 应用，不需要额外策略枚举。未来 Buff、治疗或主动技能出现实际的友军/敌军目标规则时，各自的受信任服务器入口必须调用同一关系查询；在出现重复调用模式前不增加 `ESWEffectTargetPolicy`、Application Requirement 或通用 Target Manager。
 
 `State.Invulnerable` 不依赖队伍策略。重生无敌 GE 使用 `UImmunityGameplayEffectComponent` 阻止带 `Effect.Damage` Asset Tag 的效果。
 
@@ -630,12 +620,12 @@ C++：
 
 验证：1 级/测试高等级属性不同；重生不叠加；一次经验可跨多级。
 
-### Step 3：Team Policy 与伤害
+### Step 3：队伍关系与伤害
 
 C++：
 
-- `SWGameplayEffect` Target Policy。
-- `SWTeamEffectApplicationRequirement`。
+- `SWGameplayEffect` 同队查询。
+- `SWExecCalc_Damage` 在伤害入口拒绝同队目标。
 - `SWDamageGameplayEffect`、`SWExecCalc_Damage`、Damage Helper。
 - `FSWGameplayEffectContext` 扩展与序列化。
 - Projectile Damage Config 接入。
@@ -729,7 +719,7 @@ C++：
 | 需求 | 验证 |
 |---|---|
 | FR-01～03 | 测试 GE 修改 Movement/Magazine Multiplier；验证三种移动速度、容量变化和弹药规则 |
-| FR-04～05 | TeamA/TeamB/None Tag 检查；Self/Ally/Enemy/Neutral 的 GE 应用表 |
+| FR-04～05 | TeamA/TeamB/None Tag 检查；伤害入口对 Self/Ally/Enemy/Neutral 的结果表 |
 | FR-06～08 | Projectile 命中物理/魔法/真实目标；检查捕获、穿透、暴击、Overkill 和死亡幂等 |
 | FR-09～10 | 玩家/AI 多等级初始化；一次 XP 跨多级；重生与升级资源策略 |
 | FR-11 | 击杀不同等级单位得到不同 XP；自杀、同队、重复死亡无奖励 |
@@ -759,7 +749,7 @@ C++：
 
 - 每个战斗单位 Blueprint 指定 `USWCombatantDefinition` 和必要死亡表现。
 - 等级基础属性与资源回满 GE 的 Modifier、Curve 和 Duration Policy。
-- `GE_Damage_Default` 选择 `USWExecCalc_Damage`、`EnemiesOnly` 和 `Effect.Damage`。
+- `GE_Damage_Default` 选择 `USWExecCalc_Damage` 和 `Effect.Damage`；敌我拒绝由 ExecCalc 的统一队伍查询完成。
 - 无需创建 `GE_GrantXP` 蓝图；原生 `USWGrantExperienceGameplayEffect` 已固定将 `SetByCaller.Experience` 写入 `IncomingXP`。
 - `GE_RespawnInvulnerability` 配置 Duration、`State.Invulnerable` 和 Damage Immunity。
 - Projectile Blueprint 填写 Damage Config。

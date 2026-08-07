@@ -3,8 +3,11 @@
 #include "Weapon/SWWeapon.h"
 
 #include "AbilitySystemComponent.h"
+#include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystemInterface.h"
+#include "AbilitySystem/SWAbilitySystemComponent.h"
 #include "AbilitySystem/SWAttributeSet.h"
+#include "Animation/AnimMontage.h"
 #include "Components/MeshComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -12,6 +15,7 @@
 #include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
 #include "GameplayTags/SWGameplayTags.h"
+#include "Interaction/SWCombatInterface.h"
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
 #include "Weapon/SWProjectile.h"
@@ -61,19 +65,8 @@ void ASWWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetim
 
 bool ASWWeapon::CanFire() const
 {
-	if (!WeaponConfig.IsValidForFire() || CurrentMagazineAmmo <= 0)
-	{
-		return false;
-	}
-
-	// 非权威端只用于 UI 预览，实际射速校验始终由服务器在 TryFireAuthority 中完成。
-	if (!HasAuthority())
-	{
-		return true;
-	}
-
-	const UWorld* World = GetWorld();
-	return World != nullptr && World->GetTimeSeconds() >= NextAllowedFireServerTime;
+	// 射击节奏完全由 FireCycle Section 的播放推进决定，Weapon 只验证可射击状态。
+	return WeaponConfig.IsValidForFire() && CurrentMagazineAmmo > 0;
 }
 
 bool ASWWeapon::CanReload() const
@@ -109,46 +102,86 @@ bool ASWWeapon::GetAimCameraSettings(float& OutAimFOV, FVector& OutAimCameraOffs
 	return true;
 }
 
-float ASWWeapon::GetEffectiveFireIntervalSeconds() const
+float ASWWeapon::GetEffectiveFireMontagePlayRate(const float BasePlayRate) const
 {
-	return GetEffectiveFireInterval();
+	return FMath::Max(0.01f, BasePlayRate) / GetFireIntervalMultiplier();
 }
 
-FSWShotResult ASWWeapon::TryFireAuthority()
+bool ASWWeapon::ResolveFireMontageSelection(const int32 RequestedVariantIndex, FSWFireMontageSelection& OutSelection) const
 {
-	FSWShotResult Result;
+	OutSelection = FSWFireMontageSelection();
+
+	if (WeaponConfig.FireMontageVariants.IsEmpty())
+	{
+		return false;
+	}
+
+	const int32 FirstCandidateIndex = WeaponConfig.FireMontageSelectionMode == ESWFireMontageSelectionMode::FirstValid
+		? 0
+		: FMath::Abs(RequestedVariantIndex) % WeaponConfig.FireMontageVariants.Num();
+
+	for (int32 Offset = 0; Offset < WeaponConfig.FireMontageVariants.Num(); ++Offset)
+	{
+		const int32 CandidateIndex = (FirstCandidateIndex + Offset) % WeaponConfig.FireMontageVariants.Num();
+		const FSWFireMontageVariant& Candidate = WeaponConfig.FireMontageVariants[CandidateIndex];
+		if (!Candidate.Montage)
+		{
+			continue;
+		}
+
+		OutSelection.Montage = Candidate.Montage;
+		OutSelection.StartSection = Candidate.StartSection;
+		OutSelection.EffectivePlayRate = GetEffectiveFireMontagePlayRate(Candidate.PlayRate);
+		OutSelection.VariantIndex = CandidateIndex;
+		OutSelection.bValid = true;
+		return true;
+	}
+
+	return false;
+}
+
+FSWResolvedShot ASWWeapon::TryFireAuthority()
+{
+	FSWResolvedShot Result;
+	Result.Mode = WeaponConfig.ShotResolutionMode;
 	Result.MagazineAmmoAfterShot = CurrentMagazineAmmo;
 
-	if (!CanFire())
+	if (!HasAuthority() || !CanFire())
 	{
 		return Result;
 	}
 
 	FTransform MuzzleTransform;
 	FVector ShotDirection;
-	if (!GetMuzzleTransform(MuzzleTransform) || !BuildAuthoritativeShotDirection(MuzzleTransform, ShotDirection))
+	FVector TraceEnd;
+	if (!GetMuzzleTransform(MuzzleTransform) || !BuildAuthoritativeShotQuery(MuzzleTransform, ShotDirection, TraceEnd))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("武器 %s 缺少有效枪口或瞄准上下文，本次射击被拒绝。"), *GetName());
 		return Result;
 	}
 
 	APawn* OwnerPawn = Cast<APawn>(GetOwner());
-	ASWProjectile* Projectile = GetWorld()->SpawnActorDeferred<ASWProjectile>(WeaponConfig.ProjectileClass, MuzzleTransform, OwnerPawn, OwnerPawn,
-		ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-	if (!Projectile)
+	Result.MuzzleTransform = MuzzleTransform;
+	Result.TraceEnd = TraceEnd;
+
+	switch (WeaponConfig.ShotResolutionMode)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("武器 %s 未能生成权威弹丸，本次射击未扣弹。"), *GetName());
+	case ESWShotResolutionMode::Projectile:
+		if (!ResolveProjectileAuthority(OwnerPawn, MuzzleTransform, ShotDirection))
+		{
+			return Result;
+		}
+		break;
+
+	case ESWShotResolutionMode::Hitscan:
+		ResolveHitscanAuthority(OwnerPawn, MuzzleTransform.GetLocation(), TraceEnd, Result);
+		break;
+
+	default:
 		return Result;
 	}
 
-	UGameplayStatics::FinishSpawningActor(Projectile, MuzzleTransform);
-	if (!Projectile->InitializeProjectileAuthority(OwnerPawn, ShotDirection))
-	{
-		Projectile->Destroy();
-		return Result;
-	}
 	CurrentMagazineAmmo = FMath::Max(0, CurrentMagazineAmmo - 1);
-	NextAllowedFireServerTime = GetWorld()->GetTimeSeconds() + GetEffectiveFireInterval();
 	BroadcastAmmoChanged();
 	BP_OnFireCosmetic();
 
@@ -221,7 +254,49 @@ int32 ASWWeapon::GetEffectiveMagazineCapacity() const
 	return FMath::Max(1, FMath::FloorToInt(static_cast<float>(WeaponConfig.MagazineCapacity) * FMath::Max(0.f, CapacityMultiplier)));
 }
 
-float ASWWeapon::GetEffectiveFireInterval() const
+float ASWWeapon::GetBaseFireCycleDurationSeconds() const
+{
+	for (const FSWFireMontageVariant& Variant : WeaponConfig.FireMontageVariants)
+	{
+		const UAnimMontage* Montage = Variant.Montage;
+		if (!Montage)
+		{
+			continue;
+		}
+
+		const int32 FireCycleSectionIndex = Montage->GetSectionIndex(TEXT("FireCycle"));
+		if (FireCycleSectionIndex == INDEX_NONE)
+		{
+			continue;
+		}
+
+		float StartTime = 0.f;
+		float EndTime = 0.f;
+		Montage->GetSectionStartAndEndTime(FireCycleSectionIndex, StartTime, EndTime);
+		const float BasePlayRate = FMath::Max(0.01f, Variant.PlayRate);
+		const float DurationSeconds = (EndTime - StartTime) / BasePlayRate;
+		if (DurationSeconds > KINDA_SMALL_NUMBER)
+		{
+			return DurationSeconds;
+		}
+	}
+
+	return 0.f;
+}
+
+float ASWWeapon::GetEffectiveRoundsPerMinute() const
+{
+	const float BaseFireCycleDuration = GetBaseFireCycleDurationSeconds();
+	if (BaseFireCycleDuration <= KINDA_SMALL_NUMBER)
+	{
+		return 0.f;
+	}
+
+	const float EffectiveFireCycleDuration = BaseFireCycleDuration * GetFireIntervalMultiplier();
+	return 60.f / EffectiveFireCycleDuration;
+}
+
+float ASWWeapon::GetFireIntervalMultiplier() const
 {
 	float FireIntervalReductionPercent = 0.f;
 	if (const IAbilitySystemInterface* AbilitySystemOwner = Cast<IAbilitySystemInterface>(GetOwner()))
@@ -232,8 +307,7 @@ float ASWWeapon::GetEffectiveFireInterval() const
 		}
 	}
 
-	const float BaseInterval = 60.f / WeaponConfig.RoundsPerMinute;
-	return BaseInterval * FMath::Clamp(1.f - FireIntervalReductionPercent, 0.01f, 1.f);
+	return FMath::Clamp(1.f - FireIntervalReductionPercent, 0.01f, 1.f);
 }
 
 bool ASWWeapon::IsAiming() const
@@ -249,7 +323,7 @@ bool ASWWeapon::IsAiming() const
 	return false;
 }
 
-bool ASWWeapon::BuildAuthoritativeShotDirection(const FTransform& MuzzleTransform, FVector& OutDirection) const
+bool ASWWeapon::BuildAuthoritativeShotQuery(const FTransform& MuzzleTransform, FVector& OutDirection, FVector& OutTraceEnd) const
 {
 	const APawn* OwnerPawn = Cast<APawn>(GetOwner());
 	const AController* Controller = OwnerPawn ? OwnerPawn->GetController() : nullptr;
@@ -268,10 +342,10 @@ bool ASWWeapon::BuildAuthoritativeShotDirection(const FTransform& MuzzleTransfor
 	// 第三人称相机射线从准星中心出发，必须忽略持枪 Pawn，避免命中自己的 Capsule 或 Mesh。
 	QueryParameters.AddIgnoredActor(OwnerPawn);
 	FHitResult AimHit;
-	const FVector TraceEnd = ViewLocation + ViewDirection * WeaponConfig.MaxAimDistance;
-	const FVector AimPoint = GetWorld()->LineTraceSingleByChannel(AimHit, ViewLocation, TraceEnd, ECC_Visibility, QueryParameters)
+	const FVector ViewTraceEnd = ViewLocation + ViewDirection * WeaponConfig.MaxAimDistance;
+	const FVector AimPoint = GetWorld()->LineTraceSingleByChannel(AimHit, ViewLocation, ViewTraceEnd, ECC_GameTraceChannel1, QueryParameters)
 		? AimHit.ImpactPoint
-		: TraceEnd;
+		: ViewTraceEnd;
 
 	OutDirection = (AimPoint - MuzzleTransform.GetLocation()).GetSafeNormal();
 	if (OutDirection.IsNearlyZero())
@@ -282,7 +356,85 @@ bool ASWWeapon::BuildAuthoritativeShotDirection(const FTransform& MuzzleTransfor
 	const float SpreadMultiplier = IsAiming() ? WeaponConfig.AimSpreadMultiplier : 1.f;
 	const float SpreadRadians = FMath::DegreesToRadians(WeaponConfig.HipSpreadDegrees * SpreadMultiplier);
 	OutDirection = FMath::VRandCone(OutDirection, SpreadRadians);
+	OutTraceEnd = MuzzleTransform.GetLocation() + OutDirection * WeaponConfig.MaxAimDistance;
 	return true;
+}
+
+bool ASWWeapon::ResolveProjectileAuthority(APawn* const OwnerPawn, const FTransform& MuzzleTransform, const FVector& ShotDirection)
+{
+	ASWProjectile* const Projectile = GetWorld()->SpawnActorDeferred<ASWProjectile>(WeaponConfig.ProjectileClass, MuzzleTransform, OwnerPawn, OwnerPawn,
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+	if (!Projectile)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("武器 %s 未能生成权威弹丸，本次射击未扣弹。"), *GetName());
+		return false;
+	}
+
+	UGameplayStatics::FinishSpawningActor(Projectile, MuzzleTransform);
+	if (Projectile->InitializeProjectileAuthority(OwnerPawn, ShotDirection, WeaponConfig.DamageEffectClass))
+	{
+		return true;
+	}
+
+	Projectile->Destroy();
+	return false;
+}
+
+void ASWWeapon::ResolveHitscanAuthority(APawn* const OwnerPawn, const FVector& TraceStart, const FVector& TraceEnd,
+	FSWResolvedShot& InOutResult)
+{
+	FCollisionQueryParams QueryParameters(SCENE_QUERY_STAT(SWWeaponHitscanTrace), false, OwnerPawn);
+	QueryParameters.AddIgnoredActor(this);
+	QueryParameters.AddIgnoredActor(OwnerPawn);
+
+	InOutResult.bBlockingHit = GetWorld()->LineTraceSingleByChannel(
+		InOutResult.HitResult,
+		TraceStart,
+		TraceEnd,
+		ECC_GameTraceChannel1,
+		QueryParameters);
+
+	if (InOutResult.bBlockingHit)
+	{
+		if (AActor* const HitActor = InOutResult.HitResult.GetActor())
+		{
+			ApplyDamageEffectAuthority(HitActor);
+		}
+	}
+}
+
+bool ASWWeapon::ApplyDamageEffectAuthority(AActor* const HitActor)
+{
+	if (!HasAuthority() || !HitActor || !WeaponConfig.DamageEffectClass)
+	{
+		return false;
+	}
+
+	APawn* const OwnerPawn = Cast<APawn>(GetOwner());
+	UAbilitySystemComponent* const SourceAbilitySystemComponent = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(OwnerPawn);
+	UAbilitySystemComponent* const TargetAbilitySystemComponent = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(HitActor);
+	USWAbilitySystemComponent* const SourceSWAbilitySystemComponent = Cast<USWAbilitySystemComponent>(SourceAbilitySystemComponent);
+	if (!SourceSWAbilitySystemComponent || !TargetAbilitySystemComponent)
+	{
+		return false;
+	}
+
+	if (HitActor->Implements<USWCombatInterface>() && ISWCombatInterface::Execute_IsDead(HitActor))
+	{
+		return false;
+	}
+
+	int32 EffectLevel = 1;
+	if (OwnerPawn && OwnerPawn->Implements<USWCombatInterface>())
+	{
+		EffectLevel = FMath::Max(1, ISWCombatInterface::Execute_GetCombatLevel(OwnerPawn));
+	}
+
+	return SourceSWAbilitySystemComponent->ApplyDamageEffectToTargetAuthority(
+		TargetAbilitySystemComponent,
+		WeaponConfig.DamageEffectClass,
+		EffectLevel,
+		this);
 }
 
 void ASWWeapon::BroadcastAmmoChanged()

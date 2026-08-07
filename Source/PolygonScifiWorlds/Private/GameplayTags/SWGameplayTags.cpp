@@ -52,6 +52,7 @@ namespace SWGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Damage_True_AttackCoefficient, "SetByCaller.Damage.True.AttackCoefficient", "真实伤害攻击力系数。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Damage_True_SpellCoefficient, "SetByCaller.Damage.True.SpellCoefficient", "真实伤害法强系数。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Experience, "SetByCaller.Experience", "一次性经验奖励值。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Healing, "SetByCaller.Healing", "服务器权威的瞬时治疗量。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Dead, "State.Dead", "单位已死亡。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Invulnerable, "State.Invulnerable", "单位暂时免疫伤害。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Behavior_SurviveDeath, "Ability.Behavior.SurviveDeath", "死亡时不应被取消的能力。");

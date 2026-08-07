@@ -3,7 +3,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "AbilitySystem/Effects/SWDamageGameplayEffect.h"
 #include "SWProjectileTypes.generated.h"
 
 /** 弹丸的静态配置；由弹丸蓝图 Defaults 提供，运行时不允许蓝图写入。 */
@@ -35,9 +34,6 @@ struct FSWProjectileConfig
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Projectile", meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float Bounciness = 0.f;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Projectile|Damage")
-	TSubclassOf<USWDamageGameplayEffect> DamageEffectClass;
 
 	bool IsValid() const;
 };

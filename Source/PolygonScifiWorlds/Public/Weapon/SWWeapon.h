@@ -47,8 +47,18 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Weapon")
 	bool IsAutomatic() const { return WeaponConfig.bAutomatic; }
 
-	/** 返回开火表现使用的 Montage；为空时开火仍可正常结算。 */
-	UAnimMontage* GetFireMontage() const { return WeaponConfig.FireMontage; }
+	/**
+	 * 由首个有效 FireCycle Section 的实际时长及当前射速属性推导的有效 RPM。
+	 * 仅供 UI 和调试显示；真正的射击节奏由 Montage Section 的播放推进决定。
+	 */
+	UFUNCTION(BlueprintPure, Category = "Weapon|Animation")
+	float GetEffectiveRoundsPerMinute() const;
+
+	/**
+	 * 从武器配置中选择一次开火表现，并以属性驱动的百分比同步计算播放倍率。
+	 * 仅返回内容表现数据；弹药验证和命中结算仍由 TryFireAuthority 负责。
+	 */
+	bool ResolveFireMontageSelection(int32 RequestedVariantIndex, FSWFireMontageSelection& OutSelection) const;
 
 	/** 返回换弹表现使用的 Montage；为空时换弹仍按服务器时钟完成。 */
 	UAnimMontage* GetReloadMontage() const { return WeaponConfig.ReloadMontage; }
@@ -60,13 +70,12 @@ public:
 	bool GetAimCameraSettings(float& OutAimFOV, FVector& OutAimCameraOffset, float& OutTransitionSeconds) const;
 
 	/** 返回由拥有者 AttributeSet 修正后的单发射击间隔。 */
-	float GetEffectiveFireIntervalSeconds() const;
 
 	/** 返回换弹时长；动画只负责表现，Ability 以此作为权威等待时间。 */
 	float GetReloadDurationSeconds() const { return WeaponConfig.ReloadDurationSeconds; }
 
 	/** 仅由受信任的 C++ Ability 在服务器调用；失败时没有弹药和弹丸副作用。 */
-	FSWShotResult TryFireAuthority();
+	FSWResolvedShot TryFireAuthority();
 
 	/** 仅由受信任的 C++ Ability 在服务器调用；返回实际填入当前弹匣的数量。 */
 	int32 TryCommitReloadAuthority();
@@ -104,14 +113,18 @@ protected:
 private:
 	UMeshComponent* GetActiveWeaponMesh() const;
 	int32 GetEffectiveMagazineCapacity() const;
-	float GetEffectiveFireInterval() const;
+	float GetBaseFireCycleDurationSeconds() const;
+	float GetEffectiveFireMontagePlayRate(float BasePlayRate) const;
+	float GetFireIntervalMultiplier() const;
 	bool IsAiming() const;
-	bool BuildAuthoritativeShotDirection(const FTransform& MuzzleTransform, FVector& OutDirection) const;
+	bool BuildAuthoritativeShotQuery(const FTransform& MuzzleTransform, FVector& OutDirection, FVector& OutTraceEnd) const;
+	bool ResolveProjectileAuthority(APawn* OwnerPawn, const FTransform& MuzzleTransform, const FVector& ShotDirection);
+	void ResolveHitscanAuthority(APawn* OwnerPawn, const FVector& TraceStart, const FVector& TraceEnd, FSWResolvedShot& InOutResult);
+	bool ApplyDamageEffectAuthority(AActor* HitActor);
 	void BroadcastAmmoChanged();
 	void ExecuteOwnerGameplayCue(FGameplayTag CueTag) const;
 	void BindMagazineCapacityMultiplierAuthority();
 	void HandleMagazineCapacityMultiplierChanged(const FOnAttributeChangeData& ChangeData);
 
 	/** 只存在于服务器，作为射速验证的唯一时间来源。 */
-	float NextAllowedFireServerTime = 0.f;
 };

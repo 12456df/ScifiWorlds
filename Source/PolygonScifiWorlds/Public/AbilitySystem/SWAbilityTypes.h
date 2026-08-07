@@ -60,11 +60,17 @@ public:
 	/** 返回本次伤害是否由服务器判定为暴击。 */
 	bool IsCriticalHit() const { return bCriticalHit; }
 
+	/** 返回服务器在本次物理伤害结算中使用的物理吸血比例。 */
+	float GetPhysicalLifesteal() const { return PhysicalLifesteal; }
+
 	/** 仅服务器伤害执行计算调用：记录伤害类型，供后续结算与表现读取。 */
 	void SetDamageType(const FGameplayTag InDamageType) { DamageType = InDamageType; }
 
 	/** 仅服务器伤害执行计算调用：记录暴击判定结果，客户端不得自行重掷。 */
 	void SetCriticalHit(const bool bInCriticalHit) { bCriticalHit = bInCriticalHit; }
+
+	/** 仅服务器伤害执行计算调用：记录本次物理伤害可用于结算的吸血比例。 */
+	void SetPhysicalLifesteal(const float InPhysicalLifesteal) { PhysicalLifesteal = InPhysicalLifesteal; }
 
 	virtual bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess) override;
 
@@ -76,6 +82,10 @@ private:
 	/** 由服务器唯一写入的暴击结果。 */
 	UPROPERTY()
 	bool bCriticalHit = false;
+
+	/** 本次物理伤害在服务器快照得到的吸血比例，不参与客户端伤害重算。 */
+	UPROPERTY()
+	float PhysicalLifesteal = 0.f;
 };
 
 // 告知引擎该结构体支持自定义网络序列化与拷贝。

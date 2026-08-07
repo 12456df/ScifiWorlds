@@ -49,9 +49,10 @@ void ASWProjectile::BeginPlay()
 	}
 }
 
-bool ASWProjectile::InitializeProjectileAuthority(APawn* InInstigatorPawn, const FVector& LaunchDirection)
+bool ASWProjectile::InitializeProjectileAuthority(APawn* InInstigatorPawn, const FVector& LaunchDirection,
+	const TSubclassOf<USWDamageGameplayEffect> InDamageEffectClass)
 {
-	if (!HasAuthority() || bInitialized || !ProjectileConfig.IsValid() || !InInstigatorPawn)
+	if (!HasAuthority() || bInitialized || !ProjectileConfig.IsValid() || !InInstigatorPawn || !InDamageEffectClass)
 	{
 		return false;
 	}
@@ -64,6 +65,7 @@ bool ASWProjectile::InitializeProjectileAuthority(APawn* InInstigatorPawn, const
 
 	SetInstigator(InInstigatorPawn);
 	SetOwner(InInstigatorPawn);
+	DamageEffectClass = InDamageEffectClass;
 	CollisionComponent->IgnoreActorWhenMoving(InInstigatorPawn, true);
 	CollisionComponent->SetSphereRadius(ProjectileConfig.CollisionRadius, true);
 	ProjectileMovement->InitialSpeed = ProjectileConfig.InitialSpeed;
@@ -133,7 +135,7 @@ void ASWProjectile::HandleAuthoritativeImpact(const FHitResult& Hit)
 
 bool ASWProjectile::ApplyDamageEffectAuthority(AActor* const HitActor)
 {
-	if (!HasAuthority() || !HitActor || !ProjectileConfig.DamageEffectClass)
+	if (!HasAuthority() || !HitActor || !DamageEffectClass)
 	{
 		return false;
 	}
@@ -160,7 +162,7 @@ bool ASWProjectile::ApplyDamageEffectAuthority(AActor* const HitActor)
 
 	return SourceSWAbilitySystemComponent->ApplyDamageEffectToTargetAuthority(
 		TargetAbilitySystemComponent,
-		ProjectileConfig.DamageEffectClass,
+		DamageEffectClass,
 		EffectLevel,
 		this);
 }

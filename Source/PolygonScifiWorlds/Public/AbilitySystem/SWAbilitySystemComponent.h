@@ -50,6 +50,12 @@ public:
 		AActor* EffectCauser);
 
 	/**
+	 * 仅服务器调用：对仍存活的 ASC 自身应用一次瞬时治疗。
+	 * 这是物理吸血等服务器结算治疗的唯一写入口；蓝图不得直接写入 Health。
+	 */
+	bool ApplyHealingToSelfAuthority(float Healing, AActor* EffectCauser);
+
+	/**
 	 * 仅服务器调用：向本 ASC 所属玩家结算一次经验奖励。
 	 * 该入口只创建 GE Spec；实际经验、等级和技能点仍由目标 PlayerState 的 AttributeSet/Progression 接口唯一写入。
 	 */

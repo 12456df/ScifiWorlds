@@ -12,6 +12,7 @@ class UPrimitiveComponent;
 class USphereComponent;
 class UStaticMeshComponent;
 class APawn;
+class USWDamageGameplayEffect;
 
 /** 服务器生成、服务器命中的复制弹丸；M04 只发出命中事件，不结算伤害。 */
 UCLASS()
@@ -23,7 +24,8 @@ public:
 	ASWProjectile();
 
 	/** 由服务器在 SpawnActorDeferred 后调用；成功后启动弹丸移动。 */
-	bool InitializeProjectileAuthority(APawn* InInstigatorPawn, const FVector& LaunchDirection);
+	bool InitializeProjectileAuthority(APawn* InInstigatorPawn, const FVector& LaunchDirection,
+		TSubclassOf<USWDamageGameplayEffect> InDamageEffectClass);
 
 	UFUNCTION(BlueprintPure, Category = "Projectile")
 	FVector GetLaunchVelocity() const;
@@ -59,4 +61,7 @@ private:
 
 	bool bInitialized = false;
 	bool bImpactHandled = false;
+
+	/** 由持有武器在服务器初始化时传入，弹丸蓝图不再拥有独立伤害配置。 */
+	TSubclassOf<USWDamageGameplayEffect> DamageEffectClass;
 };
