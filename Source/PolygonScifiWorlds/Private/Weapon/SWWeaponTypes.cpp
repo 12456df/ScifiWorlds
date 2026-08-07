@@ -5,7 +5,6 @@
 bool FSWWeaponConfig::IsValidForFire() const
 {
 	return MagazineCapacity > 0
-		&& RoundsPerMinute > 0.f
 		&& HipSpreadDegrees >= 0.f
 		&& AimSpreadMultiplier >= 0.f
 		&& AimSpreadMultiplier <= 1.f
@@ -13,6 +12,7 @@ bool FSWWeaponConfig::IsValidForFire() const
 		&& MaxAimDistance > 0.f
 		&& AimFOV > 0.f
 		&& AimTransitionSeconds >= 0.f
-		&& ProjectileClass != nullptr
+		&& DamageEffectClass != nullptr
+		&& (ShotResolutionMode != ESWShotResolutionMode::Projectile || ProjectileClass != nullptr)
 		&& !MuzzleSocketName.IsNone();
 }

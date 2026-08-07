@@ -3,6 +3,7 @@
 #include "AbilitySystem/SWAttributeSet.h"
 
 #include "AbilitySystem/SWAbilityTypes.h"
+#include "AbilitySystem/SWAbilitySystemComponent.h"
 #include "GameFramework/Pawn.h"
 #include "GameplayEffectExtension.h"
 #include "Interaction/SWCombatInterface.h"
@@ -10,6 +11,7 @@
 #include "Net/UnrealNetwork.h"
 #include "Player/SWPlayerController.h"
 #include "UI/DamageNumber/SWDamageNumberTypes.h"
+#include "GameplayTags//SWGameplayTags.h"
 
 USWAttributeSet::USWAttributeSet()
 {
@@ -157,6 +159,20 @@ void USWAttributeSet::ConsumeIncomingDamage(const FGameplayEffectModCallbackData
 	const FSWGameplayEffectContext* const SWContext = RawContext && RawContext->GetScriptStruct() == FSWGameplayEffectContext::StaticStruct()
 		? static_cast<const FSWGameplayEffectContext*>(RawContext)
 		: nullptr;
+
+	// 吸血只能根据实际扣除的生命结算，因而天然排除 Overkill；魔法与真实伤害的上下文比例为 0。
+	if (AppliedDamage > 0.f && SWContext && SWContext->GetDamageType() == SWGameplayTags::Damage_Type_Physical)
+	{
+		const float LifestealRatio = SWContext->GetPhysicalLifesteal();
+		if (FMath::IsFinite(LifestealRatio) && LifestealRatio > 0.f)
+		{
+			if (USWAbilitySystemComponent* const SourceAbilitySystemComponent = Cast<USWAbilitySystemComponent>(EffectContext.GetOriginalInstigatorAbilitySystemComponent()))
+			{
+				SourceAbilitySystemComponent->ApplyHealingToSelfAuthority(AppliedDamage * LifestealRatio, EffectContext.GetEffectCauser());
+			}
+		}
+	}
+
 	AActor* const TargetAvatar = Data.Target.GetAvatarActor();
 	if (APawn* const InstigatorPawn = Cast<APawn>(EffectContext.GetOriginalInstigator()))
 	{

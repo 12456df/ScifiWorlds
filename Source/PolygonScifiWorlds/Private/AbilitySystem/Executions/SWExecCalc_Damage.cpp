@@ -23,6 +23,7 @@ namespace
 		DECLARE_ATTRIBUTE_CAPTUREDEF(MagicalPenetrationFlat)
 		DECLARE_ATTRIBUTE_CAPTUREDEF(CriticalChance)
 		DECLARE_ATTRIBUTE_CAPTUREDEF(CriticalDamage)
+		DECLARE_ATTRIBUTE_CAPTUREDEF(PhysicalLifesteal)
 		DECLARE_ATTRIBUTE_CAPTUREDEF(PhysicalArmor)
 		DECLARE_ATTRIBUTE_CAPTUREDEF(MagicalArmor)
 
@@ -36,6 +37,7 @@ namespace
 			DEFINE_ATTRIBUTE_CAPTUREDEF(USWAttributeSet, MagicalPenetrationFlat, Source, true)
 			DEFINE_ATTRIBUTE_CAPTUREDEF(USWAttributeSet, CriticalChance, Source, true)
 			DEFINE_ATTRIBUTE_CAPTUREDEF(USWAttributeSet, CriticalDamage, Source, true)
+			DEFINE_ATTRIBUTE_CAPTUREDEF(USWAttributeSet, PhysicalLifesteal, Source, true)
 			DEFINE_ATTRIBUTE_CAPTUREDEF(USWAttributeSet, PhysicalArmor, Target, false)
 			DEFINE_ATTRIBUTE_CAPTUREDEF(USWAttributeSet, MagicalArmor, Target, false)
 		}
@@ -77,6 +79,7 @@ USWExecCalc_Damage::USWExecCalc_Damage()
 	RelevantAttributesToCapture.Add(Statics.MagicalPenetrationFlatDef);
 	RelevantAttributesToCapture.Add(Statics.CriticalChanceDef);
 	RelevantAttributesToCapture.Add(Statics.CriticalDamageDef);
+	RelevantAttributesToCapture.Add(Statics.PhysicalLifestealDef);
 	RelevantAttributesToCapture.Add(Statics.PhysicalArmorDef);
 	RelevantAttributesToCapture.Add(Statics.MagicalArmorDef);
 }
@@ -164,7 +167,14 @@ void USWExecCalc_Damage::Execute_Implementation(
 		}
 	}
 
-	// EffectContext 跨越执行计算与 AttributeSet 消费阶段，因此用于保存本次伤害的表现标记。
+	const float CapturedPhysicalLifesteal = DamageChannel.DamageType == SWGameplayTags::Damage_Type_Physical
+		? CaptureMagnitude(ExecutionParams, Statics.PhysicalLifestealDef, EvaluationParameters)
+		: 0.f;
+	const float PhysicalLifesteal = FMath::IsFinite(CapturedPhysicalLifesteal)
+		? FMath::Max(0.f, CapturedPhysicalLifesteal)
+		: 0.f;
+
+	// EffectContext 跨越执行计算与 AttributeSet 消费阶段，因此保存本次伤害结果及吸血快照。
 	FGameplayEffectContextHandle EffectContextHandle = Spec.GetContext();
 	FGameplayEffectContext* const RawContext = EffectContextHandle.Get();
 	if (RawContext && RawContext->GetScriptStruct() == FSWGameplayEffectContext::StaticStruct())
@@ -172,6 +182,7 @@ void USWExecCalc_Damage::Execute_Implementation(
 		FSWGameplayEffectContext* const SWContext = static_cast<FSWGameplayEffectContext*>(RawContext);
 		SWContext->SetDamageType(DamageChannel.DamageType);
 		SWContext->SetCriticalHit(bCriticalHit);
+		SWContext->SetPhysicalLifesteal(PhysicalLifesteal);
 	}
 
 	if (FinalDamage > 0.f)

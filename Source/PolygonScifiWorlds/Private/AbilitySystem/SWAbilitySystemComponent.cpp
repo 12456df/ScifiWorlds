@@ -4,7 +4,9 @@
 
 #include "AbilitySystem/Abilities/SWGameplayAbility.h"
 #include "AbilitySystem/Effects/SWGrantExperienceGameplayEffect.h"
+#include "AbilitySystem/Effects/SWHealGameplayEffect.h"
 #include "AbilitySystem/Effects/SWDamageGameplayEffect.h"
+#include "AbilitySystem/SWAttributeSet.h"
 #include "GameplayTags/SWGameplayTags.h"
 #include "Interaction/SWPlayerProgressionInterface.h"
 
@@ -203,6 +205,36 @@ bool USWAbilitySystemComponent::ApplyDamageEffectToTargetAuthority(
 	}
 
 	ApplyGameplayEffectSpecToTarget(*EffectSpec.Data.Get(), TargetAbilitySystemComponent);
+	return true;
+}
+
+bool USWAbilitySystemComponent::ApplyHealingToSelfAuthority(const float Healing, AActor* const EffectCauser)
+{
+	if (!IsOwnerActorAuthoritative() || !FMath::IsFinite(Healing) || Healing <= 0.f
+		|| HasMatchingGameplayTag(SWGameplayTags::State_Dead))
+	{
+		return false;
+	}
+
+	AActor* const SourceAvatar = GetAvatarActor();
+	const USWAttributeSet* const Attributes = GetSet<USWAttributeSet>();
+	if (!SourceAvatar || !Attributes || Attributes->GetHealth() <= 0.f)
+	{
+		return false;
+	}
+
+	FGameplayEffectContextHandle EffectContext = MakeEffectContext();
+	EffectContext.AddInstigator(SourceAvatar, EffectCauser ? EffectCauser : SourceAvatar);
+	EffectContext.AddSourceObject(EffectCauser ? EffectCauser : SourceAvatar);
+	FGameplayEffectSpecHandle EffectSpec = MakeOutgoingSpec(USWHealGameplayEffect::StaticClass(), 1.f, EffectContext);
+	if (!EffectSpec.IsValid())
+	{
+		return false;
+	}
+
+	EffectSpec.Data->SetSetByCallerMagnitude(SWGameplayTags::SetByCaller_Healing, Healing);
+	// Instant GE 不会生成有效的 Active Handle；Spec 有效且已经通过服务器检查即可执行。
+	ApplyGameplayEffectSpecToSelf(*EffectSpec.Data.Get());
 	return true;
 }
 

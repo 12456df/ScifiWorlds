@@ -2,6 +2,9 @@
 
 #include "AbilitySystem/Abilities/Input/SWWeaponFireGameplayAbility.h"
 
+#include "Animation/AnimInstance.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Character/SWCharacter_Player.h"
 #include "GameplayTags/SWGameplayTags.h"
 #include "Weapon/SWWeapon.h"
 
@@ -25,14 +28,25 @@ bool USWWeaponFireGameplayAbility::CanActivateAbility(const FGameplayAbilitySpec
 		&& GetCurrentWeapon(ActorInfo)->CanFire();
 }
 
-UAnimMontage* USWWeaponFireGameplayAbility::GetCurrentWeaponFireMontage() const
+FSWFireMontageSelection USWWeaponFireGameplayAbility::SelectNextFireMontage()
 {
+	bFireInputHeld = true;
+	SelectedFireMontage = FSWFireMontageSelection();
 	if (const ASWWeapon* Weapon = GetCurrentWeapon())
 	{
-		return Weapon->GetFireMontage();
+		Weapon->ResolveFireMontageSelection(NextFireMontageVariantIndex, SelectedFireMontage);
+		if (SelectedFireMontage.bValid)
+		{
+			NextFireMontageVariantIndex = SelectedFireMontage.VariantIndex + 1;
+		}
 	}
 
-	return nullptr;
+	return SelectedFireMontage;
+}
+
+FSWFireMontageSelection USWWeaponFireGameplayAbility::GetSelectedFireMontage() const
+{
+	return SelectedFireMontage;
 }
 
 bool USWWeaponFireGameplayAbility::IsCurrentWeaponAutomatic() const
@@ -45,14 +59,39 @@ bool USWWeaponFireGameplayAbility::IsCurrentWeaponAutomatic() const
 	return false;
 }
 
-float USWWeaponFireGameplayAbility::GetCurrentWeaponFireIntervalSeconds() const
+bool USWWeaponFireGameplayAbility::ConfigureActiveFireMontageSections()
 {
-	if (const ASWWeapon* Weapon = GetCurrentWeapon())
+	const FSWFireMontageSelection& Selection = SelectedFireMontage;
+	ASWCharacter_Player* const Character = GetPlayerCharacter();
+	USkeletalMeshComponent* const Mesh = Character ? Character->GetMesh() : nullptr;
+	UAnimInstance* const AnimInstance = Mesh ? Mesh->GetAnimInstance() : nullptr;
+	if (!Selection.bValid || !Selection.Montage || !AnimInstance || !AnimInstance->Montage_IsActive(Selection.Montage))
 	{
-		return Weapon->GetEffectiveFireIntervalSeconds();
+		return false;
 	}
 
-	return 0.f;
+	// 该调用必须发生在 Montage 已播放之后；播放前没有活动实例，设置会被引擎忽略。
+	AnimInstance->Montage_SetNextSection(
+		TEXT("FireCycle"),
+		IsCurrentWeaponAutomatic() && bFireInputHeld ? TEXT("FireCycle") : TEXT("FireRecovery"),
+		Selection.Montage);
+	return true;
+}
+
+void USWWeaponFireGameplayAbility::RequestFireMontageRecovery()
+{
+	bFireInputHeld = false;
+
+	const FSWFireMontageSelection& Selection = SelectedFireMontage;
+	ASWCharacter_Player* const Character = GetPlayerCharacter();
+	USkeletalMeshComponent* const Mesh = Character ? Character->GetMesh() : nullptr;
+	UAnimInstance* const AnimInstance = Mesh ? Mesh->GetAnimInstance() : nullptr;
+	if (!Selection.bValid || !Selection.Montage || !AnimInstance || !AnimInstance->Montage_IsActive(Selection.Montage))
+	{
+		return;
+	}
+
+	AnimInstance->Montage_SetNextSection(TEXT("FireCycle"), TEXT("FireRecovery"), Selection.Montage);
 }
 
 bool USWWeaponFireGameplayAbility::CommitFireFromAnimEvent()
