@@ -150,12 +150,18 @@ public:
 	// --- Ability modifiers ---
 	// 百分比修正属性以 0 表示无修正。Ability 读取快照后按统一公式换算有效值。
 	//   EffectiveRange    = BaseRange    * (1 + AbilityRangeBonusPercent)
+	//   EffectiveArea     = BaseArea     * (1 + AbilityAreaBonusPercent)
 	//   EffectiveDuration = BaseDuration * (1 + AbilityDurationBonusPercent)
 	//   EffectiveCooldown = BaseCooldown * (1 - CooldownReductionPercent)
 
 	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|AbilityMod", ReplicatedUsing = OnRep_AbilityRangeBonusPercent)
 	FGameplayAttributeData AbilityRangeBonusPercent;
 	ATTRIBUTE_ACCESSORS(USWAttributeSet, AbilityRangeBonusPercent);
+
+	/** 对技能作用半径、碰撞体和对应视觉尺寸的百分比加成；具体技能选择性读取，0 表示不修正。 */
+	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|AbilityMod", ReplicatedUsing = OnRep_AbilityAreaBonusPercent)
+	FGameplayAttributeData AbilityAreaBonusPercent;
+	ATTRIBUTE_ACCESSORS(USWAttributeSet, AbilityAreaBonusPercent);
 
 	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|AbilityMod", ReplicatedUsing = OnRep_AbilityDurationBonusPercent)
 	FGameplayAttributeData AbilityDurationBonusPercent;
@@ -164,6 +170,11 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|AbilityMod", ReplicatedUsing = OnRep_CooldownReductionPercent)
 	FGameplayAttributeData CooldownReductionPercent;
 	ATTRIBUTE_ACCESSORS(USWAttributeSet, CooldownReductionPercent);
+
+	/** 对主动技能基础最大充能提供的整数加成；具体取整与下限由 Ability 统一处理。 */
+	UPROPERTY(BlueprintReadOnly, Category = "SW|Attributes|AbilityMod", ReplicatedUsing = OnRep_AbilityChargeBonus)
+	FGameplayAttributeData AbilityChargeBonus;
+	ATTRIBUTE_ACCESSORS(USWAttributeSet, AbilityChargeBonus);
 
 	// --- Weapon modifiers ---
 
@@ -268,10 +279,16 @@ protected:
 	void OnRep_AbilityRangeBonusPercent(const FGameplayAttributeData& OldValue) const;
 
 	UFUNCTION()
+	void OnRep_AbilityAreaBonusPercent(const FGameplayAttributeData& OldValue) const;
+
+	UFUNCTION()
 	void OnRep_AbilityDurationBonusPercent(const FGameplayAttributeData& OldValue) const;
 
 	UFUNCTION()
 	void OnRep_CooldownReductionPercent(const FGameplayAttributeData& OldValue) const;
+
+	UFUNCTION()
+	void OnRep_AbilityChargeBonus(const FGameplayAttributeData& OldValue) const;
 
 	UFUNCTION()
 	void OnRep_MagazineCapacityMultiplier(const FGameplayAttributeData& OldValue) const;

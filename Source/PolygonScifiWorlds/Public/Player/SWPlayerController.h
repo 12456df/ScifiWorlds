@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GameplayTagContainer.h"
 #include "GameFramework/PlayerController.h"
 #include "UI/DamageNumber/SWDamageNumberTypes.h"
 #include "SWPlayerController.generated.h"
@@ -40,11 +41,21 @@ public:
 	UFUNCTION(Client, Unreliable)
 	void ClientShowDamageNumber(const FSWDamageNumberPayload& Payload);
 
+	/** 仅由所属客户端输入调用：请求服务器升级指定的固定主动技能槽位。 */
+	void RequestActiveAbilityUpgrade(FGameplayTag InputTag);
+
 	/** 仅本地客户端表现入口；由蓝图创建并驱动 WBP_DamageNumber。 */
 	UFUNCTION(BlueprintImplementableEvent, Category = "UI|Damage Number", meta = (DisplayName = "显示伤害数字"))
 	void BP_ShowDamageNumber(const FSWDamageNumberPayload& Payload);
 
 protected:
+	/** 所属客户端的升级意图 RPC；服务器只接受既有 Skill1/Skill2/Skill3 输入 Tag。 */
+	UFUNCTION(Server, Reliable)
+	void ServerRequestActiveAbilityUpgrade(FGameplayTag InputTag);
+
+	/** 服务器侧执行升级事务的共享入口，供本地服务器和 RPC 实现复用。 */
+	void ProcessActiveAbilityUpgradeRequestAuthority(FGameplayTag InputTag);
+
 	/** 由 PlayerController 蓝图默认值指定的唯一输入数据资产。 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USWInputConfig> InputConfig = nullptr;

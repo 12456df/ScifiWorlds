@@ -3,8 +3,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "AbilitySystem/SWAbilityTypes.h"
 #include "AbilitySystem/Effects/SWDamageGameplayEffect.h"
 #include "GameplayTagContainer.h"
+#include "ScalableFloat.h"
 #include "Weapon/SWProjectile.h"
 #include "SWWeaponTypes.generated.h"
 
@@ -24,6 +26,30 @@ enum class ESWFireMontageSelectionMode : uint8
 {
 	FirstValid UMETA(DisplayName = "First Valid"),
 	Sequential UMETA(DisplayName = "Sequential")
+};
+
+/** 武器自身的原始伤害规则；不得放入通用 Damage GE。 */
+USTRUCT(BlueprintType)
+struct FSWWeaponDamageConfig
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon|Damage")
+	FGameplayTag DamageType;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon|Damage", meta = (ClampMin = "0.0"))
+	FScalableFloat BaseDamage;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon|Damage")
+	FScalableFloat AttackPowerCoefficient;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon|Damage")
+	FScalableFloat SpellPowerCoefficient;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon|Damage")
+	bool bCanCritical = true;
+
+	bool IsValid() const;
 };
 
 /** 单个武器开火动作的内容配置。 */
@@ -111,6 +137,10 @@ struct FSWWeaponConfig
 	/** 服务器命中有效敌方 ASC 后应用的统一伤害 GE。 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon|Shot")
 	TSubclassOf<USWDamageGameplayEffect> DamageEffectClass;
+
+	/** 武器生成原始伤害的规则；目标防御、穿透和暴击仍由 Damage GE 的 ExecCalc 结算。 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon|Shot")
+	FSWWeaponDamageConfig DamageConfig;
 
 	/** 仅 Projectile 模式需要填写；Hitscan 模式不会生成弹丸 Actor。 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")

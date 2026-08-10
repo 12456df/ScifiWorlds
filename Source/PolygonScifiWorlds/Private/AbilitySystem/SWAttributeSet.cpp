@@ -57,8 +57,10 @@ void USWAttributeSet::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, StaminaRegeneration, COND_None, REPNOTIFY_Always);
 
 	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, AbilityRangeBonusPercent, COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, AbilityAreaBonusPercent, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, AbilityDurationBonusPercent, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, CooldownReductionPercent, COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, AbilityChargeBonus, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, MagazineCapacityMultiplier, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(USWAttributeSet, FireIntervalReductionPercent, COND_None, REPNOTIFY_Always);
 }
@@ -119,6 +121,15 @@ void USWAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallback
 	else if (Data.EvaluatedData.Attribute == GetStaminaAttribute())
 	{
 		SetStamina(FMath::Clamp(GetStamina(), 0.f, GetMaxStamina()));
+
+		// 只有服务器在体力耗尽时结束疾跑；客户端接收 Ability 结束与属性复制，不自行写入权威状态。
+		if (Data.EvaluatedData.Magnitude < 0.f && GetStamina() <= 0.f
+			&& Data.Target.GetOwnerActor() && Data.Target.GetOwnerActor()->HasAuthority())
+		{
+			FGameplayTagContainer SprintAbilityTags;
+			SprintAbilityTags.AddTag(SWGameplayTags::Ability_Movement_Sprint);
+			Data.Target.CancelAbilities(&SprintAbilityTags);
+		}
 	}
 	else if (Data.EvaluatedData.Attribute == GetPhysicalPenetrationPercentAttribute())
 	{
@@ -342,6 +353,11 @@ void USWAttributeSet::OnRep_AbilityRangeBonusPercent(const FGameplayAttributeDat
 	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, AbilityRangeBonusPercent, OldValue);
 }
 
+void USWAttributeSet::OnRep_AbilityAreaBonusPercent(const FGameplayAttributeData& OldValue) const
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, AbilityAreaBonusPercent, OldValue);
+}
+
 void USWAttributeSet::OnRep_AbilityDurationBonusPercent(const FGameplayAttributeData& OldValue) const
 {
 	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, AbilityDurationBonusPercent, OldValue);
@@ -350,6 +366,11 @@ void USWAttributeSet::OnRep_AbilityDurationBonusPercent(const FGameplayAttribute
 void USWAttributeSet::OnRep_CooldownReductionPercent(const FGameplayAttributeData& OldValue) const
 {
 	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, CooldownReductionPercent, OldValue);
+}
+
+void USWAttributeSet::OnRep_AbilityChargeBonus(const FGameplayAttributeData& OldValue) const
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(USWAttributeSet, AbilityChargeBonus, OldValue);
 }
 
 void USWAttributeSet::OnRep_MagazineCapacityMultiplier(const FGameplayAttributeData& OldValue) const

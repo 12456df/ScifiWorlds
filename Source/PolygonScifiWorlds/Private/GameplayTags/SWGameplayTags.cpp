@@ -17,6 +17,20 @@ namespace SWGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Input_Aim, "Ability.Input.Aim", "瞄准输入。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Input_Reload, "Ability.Input.Reload", "换弹输入。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Input_Sprint, "Ability.Input.Sprint", "疾跑输入。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Input_Skill1, "Ability.Input.Skill1", "第一个主动技能槽的输入路由。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Input_Skill2, "Ability.Input.Skill2", "第二个主动技能槽的输入路由。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Input_Skill3, "Ability.Input.Skill3", "第三个主动技能槽的输入路由。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Type_ActiveSkill, "Ability.Type.ActiveSkill", "可由技能点升级的主动技能分类。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Fail_NoMana, "Ability.Fail.NoMana", "技能 Mana 不足。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Fail_NoStamina, "Ability.Fail.NoStamina", "疾跑所需的 Stamina 不足。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Fail_InvalidCostData, "Ability.Fail.InvalidCostData", "主动技能蓝耗为正但未配置 Cost GE。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Fail_NoCharges, "Ability.Fail.NoCharges", "技能没有可用充能。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Fail_InvalidTarget, "Ability.Fail.InvalidTarget", "技能目标未通过服务器校验。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Fail_InvalidLevelData, "Ability.Fail.InvalidLevelData", "技能等级数据无效。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Skill_PortalSphere, "Ability.Skill.PortalSphere", "PortalSphere 主动技能身份。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Cooldown_Ability_PortalSphere, "Cooldown.Ability.PortalSphere", "PortalSphere 冷却状态。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Skill_Shield, "Ability.Skill.Shield", "Shield 主动技能身份。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Cooldown_Ability_Shield, "Cooldown.Ability.Shield", "Shield 冷却状态。");
 
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Weapon_Fire, "Ability.Weapon.Fire", "开火能力身份。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Weapon_Aim, "Ability.Weapon.Aim", "瞄准能力身份。");
@@ -27,9 +41,12 @@ namespace SWGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Weapon_Aiming, "State.Weapon.Aiming", "当前处于瞄准。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Weapon_Reloading, "State.Weapon.Reloading", "当前正在换弹。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Movement_Sprinting, "State.Movement.Sprinting", "当前处于疾跑。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Ability_Targeting, "State.Ability.Targeting", "角色正等待确认或取消目标预览。");
 
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Weapon_Fire, "Event.Weapon.Fire", "武器 Montage 发射时刻事件。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Weapon_ProjectileImpact, "Event.Weapon.ProjectileImpact", "弹丸权威命中事件。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Ability_PortalSphere_Spawn, "Event.Ability.PortalSphere.Spawn", "PortalSphere 施法动作生成弹体事件。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Ability_Shield_Spawn, "Event.Ability.Shield.Spawn", "Shield 施法动作生成屏障事件。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Weapon_Fire, "GameplayCue.Weapon.Fire", "开火纯表现 Cue。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Weapon_Reload, "GameplayCue.Weapon.Reload", "换弹纯表现 Cue。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Projectile_Impact, "GameplayCue.Projectile.Impact", "弹丸命中纯表现 Cue。");
@@ -42,17 +59,12 @@ namespace SWGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Damage_Type_Magical, "Damage.Type.Magical", "魔法伤害通道。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Damage_Type_True, "Damage.Type.True", "真实伤害通道。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Effect_Damage, "Effect.Damage", "造成伤害的 Gameplay Effect 资产 Tag。");
-	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Damage_Physical_Base, "SetByCaller.Damage.Physical.Base", "物理伤害基础值。");
-	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Damage_Physical_AttackCoefficient, "SetByCaller.Damage.Physical.AttackCoefficient", "物理伤害攻击力系数。");
-	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Damage_Physical_SpellCoefficient, "SetByCaller.Damage.Physical.SpellCoefficient", "物理伤害法强系数。");
-	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Damage_Magical_Base, "SetByCaller.Damage.Magical.Base", "魔法伤害基础值。");
-	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Damage_Magical_AttackCoefficient, "SetByCaller.Damage.Magical.AttackCoefficient", "魔法伤害攻击力系数。");
-	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Damage_Magical_SpellCoefficient, "SetByCaller.Damage.Magical.SpellCoefficient", "魔法伤害法强系数。");
-	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Damage_True_Base, "SetByCaller.Damage.True.Base", "真实伤害基础值。");
-	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Damage_True_AttackCoefficient, "SetByCaller.Damage.True.AttackCoefficient", "真实伤害攻击力系数。");
-	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Damage_True_SpellCoefficient, "SetByCaller.Damage.True.SpellCoefficient", "真实伤害法强系数。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Damage_Raw, "SetByCaller.Damage.Raw", "伤害生产者在服务器计算完成的未减免伤害。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Experience, "SetByCaller.Experience", "一次性经验奖励值。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Healing, "SetByCaller.Healing", "服务器权威的瞬时治疗量。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Ability_Cooldown, "SetByCaller.Ability.Cooldown", "主动技能提交时写入的冷却时长。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Ability_ManaCost, "SetByCaller.Ability.ManaCost", "主动技能提交时写入的 Mana 消耗。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Ability_Duration, "SetByCaller.Ability.Duration", "主动技能提交时写入的持续时间。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Dead, "State.Dead", "单位已死亡。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Invulnerable, "State.Invulnerable", "单位暂时免疫伤害。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Behavior_SurviveDeath, "Ability.Behavior.SurviveDeath", "死亡时不应被取消的能力。");

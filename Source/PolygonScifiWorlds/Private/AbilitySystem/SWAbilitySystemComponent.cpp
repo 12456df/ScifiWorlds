@@ -2,6 +2,7 @@
 
 #include "AbilitySystem/SWAbilitySystemComponent.h"
 
+#include "AbilitySystem/Abilities/Active/SWActiveGameplayAbility.h"
 #include "AbilitySystem/Abilities/SWGameplayAbility.h"
 #include "AbilitySystem/Effects/SWGrantExperienceGameplayEffect.h"
 #include "AbilitySystem/Effects/SWHealGameplayEffect.h"
@@ -9,6 +10,7 @@
 #include "AbilitySystem/SWAttributeSet.h"
 #include "GameplayTags/SWGameplayTags.h"
 #include "Interaction/SWPlayerProgressionInterface.h"
+#include "Player/SWPlayerState.h"
 
 namespace
 {
@@ -25,6 +27,20 @@ namespace
 			return SWGameplayTags::State_Team_None;
 		}
 	}
+}
+
+void USWAbilitySystemComponent::OnGiveAbility(FGameplayAbilitySpec& AbilitySpec)
+{
+	Super::OnGiveAbility(AbilitySpec);
+	OnActivatableAbilitySpecChanged.Broadcast(AbilitySpec, ESWActivatableAbilitySpecChangeType::Added);
+}
+
+void USWAbilitySystemComponent::OnRemoveAbility(FGameplayAbilitySpec& AbilitySpec)
+{
+	Super::OnRemoveAbility(AbilitySpec);
+
+	// 引擎在此回调返回后才会从数组移除 Spec；直接携带 Spec 广播，订阅方无需读取这个临界状态。
+	OnActivatableAbilitySpecChanged.Broadcast(AbilitySpec, ESWActivatableAbilitySpecChangeType::Removed);
 }
 
 void USWAbilitySystemComponent::AbilityInputTagPressed(const FGameplayTag InputTag)
@@ -61,6 +77,28 @@ void USWAbilitySystemComponent::AbilityInputTagReleased(const FGameplayTag Input
 
 		InputReleasedSpecHandles.AddUnique(AbilitySpec.Handle);
 	}
+}
+
+bool USWAbilitySystemComponent::TryConsumeGenericConfirmInput()
+{
+	if (!GenericLocalConfirmCallbacks.IsBound())
+	{
+		return false;
+	}
+
+	InputConfirm();
+	return true;
+}
+
+bool USWAbilitySystemComponent::TryConsumeGenericCancelInput()
+{
+	if (!GenericLocalCancelCallbacks.IsBound())
+	{
+		return false;
+	}
+
+	InputCancel();
+	return true;
 }
 
 void USWAbilitySystemComponent::ProcessAbilityInput(const float DeltaTime, const bool bGamePaused)
@@ -135,13 +173,24 @@ void USWAbilitySystemComponent::GrantStartupAbilities(const TArray<FSWStartupAbi
 	{
 		if (!StartupAbility.AbilityClass || !StartupAbility.InputTag.IsValid())
 		{
+			UE_LOG(LogTemp, Warning, TEXT("跳过无效的启动技能配置：AbilityClass 或 InputTag 缺失。"));
+			continue;
+		}
+
+		const USWActiveGameplayAbility* const StartupActiveAbilityCDO = Cast<USWActiveGameplayAbility>(StartupAbility.AbilityClass.GetDefaultObject());
+		if (StartupActiveAbilityCDO && !StartupActiveAbilityCDO->GetAbilityIdTag().IsValid())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("跳过缺少 AbilityIdTag 的启动技能：%s"), *GetNameSafe(StartupAbility.AbilityClass));
 			continue;
 		}
 
 		bool bAlreadyGranted = false;
 		for (const FGameplayAbilitySpec& AbilitySpec : GetActivatableAbilities())
 		{
-			if (AbilitySpec.Ability && AbilitySpec.Ability->GetClass() == StartupAbility.AbilityClass.Get())
+			const USWActiveGameplayAbility* const ExistingActiveAbilityCDO = Cast<USWActiveGameplayAbility>(AbilitySpec.Ability);
+			if (AbilitySpec.Ability && (AbilitySpec.Ability->GetClass() == StartupAbility.AbilityClass.Get()
+				|| (StartupActiveAbilityCDO && ExistingActiveAbilityCDO
+					&& ExistingActiveAbilityCDO->GetAbilityIdTag() == StartupActiveAbilityCDO->GetAbilityIdTag())))
 			{
 				bAlreadyGranted = true;
 				break;
@@ -153,10 +202,55 @@ void USWAbilitySystemComponent::GrantStartupAbilities(const TArray<FSWStartupAbi
 			continue;
 		}
 
-		FGameplayAbilitySpec AbilitySpec(StartupAbility.AbilityClass.Get(), 1);
+		// 仅首次授予使用配置等级；已有 Spec（包括重生后的已升级技能）保持其服务器真值。
+		FGameplayAbilitySpec AbilitySpec(StartupAbility.AbilityClass.Get(), FMath::Max(1, StartupAbility.StartingLevel));
 		AbilitySpec.GetDynamicSpecSourceTags().AddTag(StartupAbility.InputTag);
 		GiveAbility(AbilitySpec);
 	}
+}
+
+bool USWAbilitySystemComponent::TryUpgradeActiveAbilityAuthority(const FGameplayTag InputTag)
+{
+	if (!IsOwnerActorAuthoritative()
+		|| (InputTag != SWGameplayTags::Ability_Input_Skill1
+			&& InputTag != SWGameplayTags::Ability_Input_Skill2
+			&& InputTag != SWGameplayTags::Ability_Input_Skill3))
+	{
+		return false;
+	}
+
+	ASWPlayerState* const OwningPlayerState = Cast<ASWPlayerState>(GetOwnerActor());
+	if (!OwningPlayerState || OwningPlayerState->GetAbilityPoints() <= 0)
+	{
+		return false;
+	}
+
+	for (FGameplayAbilitySpec& AbilitySpec : GetActivatableAbilities())
+	{
+		if (!AbilitySpec.GetDynamicSpecSourceTags().HasTagExact(InputTag))
+		{
+			continue;
+		}
+
+		const USWActiveGameplayAbility* const ActiveAbility = Cast<USWActiveGameplayAbility>(AbilitySpec.Ability);
+		if (!ActiveAbility || !ActiveAbility->IsUpgradeable() || AbilitySpec.IsActive()
+			|| AbilitySpec.Level < 1 || AbilitySpec.Level >= ActiveAbility->GetMaxAbilityLevel())
+		{
+			return false;
+		}
+
+		// 校验完成后才扣点；失败路径不会改变 PlayerState 或 Ability Spec。
+		if (!OwningPlayerState->SpendAbilityPoint())
+		{
+			return false;
+		}
+
+		++AbilitySpec.Level;
+		MarkAbilitySpecDirty(AbilitySpec);
+		return true;
+	}
+
+	return false;
 }
 
 void USWAbilitySystemComponent::SetTeamIdTagAuthority(const ESWTeamId TeamId)
@@ -181,31 +275,69 @@ bool USWAbilitySystemComponent::ApplyDamageEffectToTargetAuthority(
 	UAbilitySystemComponent* const TargetAbilitySystemComponent,
 	const TSubclassOf<USWDamageGameplayEffect> DamageEffectClass,
 	const int32 EffectLevel,
-	AActor* const EffectCauser)
+	AActor* const EffectCauser,
+	const FSWDamageApplicationParams& DamageParams)
+{
+	return ApplyDamageEffectToTargetWithHandleAuthority(
+		TargetAbilitySystemComponent,
+		DamageEffectClass,
+		EffectLevel,
+		EffectCauser,
+		DamageParams).WasSuccessfullyApplied();
+}
+
+FActiveGameplayEffectHandle USWAbilitySystemComponent::ApplyDamageEffectToTargetWithHandleAuthority(
+	UAbilitySystemComponent* const TargetAbilitySystemComponent,
+	const TSubclassOf<USWDamageGameplayEffect> DamageEffectClass,
+	const int32 EffectLevel,
+	AActor* const EffectCauser,
+	const FSWDamageApplicationParams& DamageParams)
 {
 	if (!IsOwnerActorAuthoritative() || !TargetAbilitySystemComponent || !TargetAbilitySystemComponent->IsOwnerActorAuthoritative()
-		|| TargetAbilitySystemComponent == this || !DamageEffectClass)
+		|| TargetAbilitySystemComponent == this || !DamageEffectClass || !FMath::IsFinite(DamageParams.RawDamage) || DamageParams.RawDamage <= 0.f)
 	{
-		return false;
+		return FActiveGameplayEffectHandle();
+	}
+
+	if (DamageParams.DamageType != SWGameplayTags::Damage_Type_Physical
+		&& DamageParams.DamageType != SWGameplayTags::Damage_Type_Magical
+		&& DamageParams.DamageType != SWGameplayTags::Damage_Type_True)
+	{
+		return FActiveGameplayEffectHandle();
 	}
 
 	AActor* const SourceAvatar = GetAvatarActor();
 	if (!SourceAvatar)
 	{
-		return false;
+		return FActiveGameplayEffectHandle();
 	}
 
 	FGameplayEffectContextHandle EffectContext = MakeEffectContext();
 	EffectContext.AddInstigator(SourceAvatar, EffectCauser ? EffectCauser : SourceAvatar);
 	EffectContext.AddSourceObject(EffectCauser ? EffectCauser : SourceAvatar);
+	FSWGameplayEffectContext* const SWContext = EffectContext.Get() && EffectContext.Get()->GetScriptStruct() == FSWGameplayEffectContext::StaticStruct()
+		? static_cast<FSWGameplayEffectContext*>(EffectContext.Get())
+		: nullptr;
+	if (!SWContext)
+	{
+		return FActiveGameplayEffectHandle();
+	}
+
+	SWContext->SetDamageType(DamageParams.DamageType);
+	SWContext->SetCanCritical(DamageParams.bCanCritical);
 	const FGameplayEffectSpecHandle EffectSpec = MakeOutgoingSpec(DamageEffectClass, FMath::Max(1, EffectLevel), EffectContext);
 	if (!EffectSpec.IsValid())
 	{
-		return false;
+		return FActiveGameplayEffectHandle();
 	}
 
-	ApplyGameplayEffectSpecToTarget(*EffectSpec.Data.Get(), TargetAbilitySystemComponent);
-	return true;
+	EffectSpec.Data->SetSetByCallerMagnitude(SWGameplayTags::SetByCaller_Damage_Raw, DamageParams.RawDamage);
+	if (FMath::IsFinite(DamageParams.EffectDurationSeconds) && DamageParams.EffectDurationSeconds > 0.f)
+	{
+		EffectSpec.Data->SetSetByCallerMagnitude(SWGameplayTags::SetByCaller_Ability_Duration, DamageParams.EffectDurationSeconds);
+	}
+
+	return ApplyGameplayEffectSpecToTarget(*EffectSpec.Data.Get(), TargetAbilitySystemComponent);
 }
 
 bool USWAbilitySystemComponent::ApplyHealingToSelfAuthority(const float Healing, AActor* const EffectCauser)

@@ -124,6 +124,7 @@ private:
 	void UpdateLocalCamera(float DeltaTime);
 	void HandleSprintingChanged(bool bIsSprinting);
 	void SetLocalSprintCameraShakeActive(bool bActive);
+	bool IsAbilityUpgradeModifierDown() const;
 
 	float HipCameraFOV = 0.f;
 	FVector HipCameraOffset = FVector::ZeroVector;
@@ -134,4 +135,6 @@ private:
 	FDelegateHandle SprintStateChangedHandle;
 	TWeakObjectPtr<ASWPlayerState> BoundProgressionPlayerState;
 	FDelegateHandle LevelChangedHandle;
+	/** Alt+技能键已作为升级请求消费，释放时不可再转发给对应 Ability。 */
+	FGameplayTagContainer UpgradeRequestInputTags;
 };

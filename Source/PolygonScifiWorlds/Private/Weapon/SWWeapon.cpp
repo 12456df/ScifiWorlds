@@ -161,20 +161,26 @@ FSWResolvedShot ASWWeapon::TryFireAuthority()
 	}
 
 	APawn* OwnerPawn = Cast<APawn>(GetOwner());
+	FSWDamageApplicationParams DamageParams;
+	if (!BuildDamageApplicationParamsAuthority(OwnerPawn, DamageParams))
+	{
+		return Result;
+	}
+
 	Result.MuzzleTransform = MuzzleTransform;
 	Result.TraceEnd = TraceEnd;
 
 	switch (WeaponConfig.ShotResolutionMode)
 	{
 	case ESWShotResolutionMode::Projectile:
-		if (!ResolveProjectileAuthority(OwnerPawn, MuzzleTransform, ShotDirection))
+		if (!ResolveProjectileAuthority(OwnerPawn, MuzzleTransform, ShotDirection, DamageParams))
 		{
 			return Result;
 		}
 		break;
 
 	case ESWShotResolutionMode::Hitscan:
-		ResolveHitscanAuthority(OwnerPawn, MuzzleTransform.GetLocation(), TraceEnd, Result);
+		ResolveHitscanAuthority(OwnerPawn, MuzzleTransform.GetLocation(), TraceEnd, DamageParams, Result);
 		break;
 
 	default:
@@ -360,7 +366,8 @@ bool ASWWeapon::BuildAuthoritativeShotQuery(const FTransform& MuzzleTransform, F
 	return true;
 }
 
-bool ASWWeapon::ResolveProjectileAuthority(APawn* const OwnerPawn, const FTransform& MuzzleTransform, const FVector& ShotDirection)
+bool ASWWeapon::ResolveProjectileAuthority(APawn* const OwnerPawn, const FTransform& MuzzleTransform, const FVector& ShotDirection,
+	const FSWDamageApplicationParams& DamageParams)
 {
 	ASWProjectile* const Projectile = GetWorld()->SpawnActorDeferred<ASWProjectile>(WeaponConfig.ProjectileClass, MuzzleTransform, OwnerPawn, OwnerPawn,
 		ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
@@ -371,7 +378,7 @@ bool ASWWeapon::ResolveProjectileAuthority(APawn* const OwnerPawn, const FTransf
 	}
 
 	UGameplayStatics::FinishSpawningActor(Projectile, MuzzleTransform);
-	if (Projectile->InitializeProjectileAuthority(OwnerPawn, ShotDirection, WeaponConfig.DamageEffectClass))
+	if (Projectile->InitializeProjectileAuthority(OwnerPawn, ShotDirection, WeaponConfig.DamageEffectClass, DamageParams))
 	{
 		return true;
 	}
@@ -381,7 +388,7 @@ bool ASWWeapon::ResolveProjectileAuthority(APawn* const OwnerPawn, const FTransf
 }
 
 void ASWWeapon::ResolveHitscanAuthority(APawn* const OwnerPawn, const FVector& TraceStart, const FVector& TraceEnd,
-	FSWResolvedShot& InOutResult)
+	const FSWDamageApplicationParams& DamageParams, FSWResolvedShot& InOutResult)
 {
 	FCollisionQueryParams QueryParameters(SCENE_QUERY_STAT(SWWeaponHitscanTrace), false, OwnerPawn);
 	QueryParameters.AddIgnoredActor(this);
@@ -398,12 +405,12 @@ void ASWWeapon::ResolveHitscanAuthority(APawn* const OwnerPawn, const FVector& T
 	{
 		if (AActor* const HitActor = InOutResult.HitResult.GetActor())
 		{
-			ApplyDamageEffectAuthority(HitActor);
+			ApplyDamageEffectAuthority(HitActor, DamageParams);
 		}
 	}
 }
 
-bool ASWWeapon::ApplyDamageEffectAuthority(AActor* const HitActor)
+bool ASWWeapon::ApplyDamageEffectAuthority(AActor* const HitActor, const FSWDamageApplicationParams& DamageParams)
 {
 	if (!HasAuthority() || !HitActor || !WeaponConfig.DamageEffectClass)
 	{
@@ -434,7 +441,40 @@ bool ASWWeapon::ApplyDamageEffectAuthority(AActor* const HitActor)
 		TargetAbilitySystemComponent,
 		WeaponConfig.DamageEffectClass,
 		EffectLevel,
-		this);
+		this,
+		DamageParams);
+}
+
+bool ASWWeapon::BuildDamageApplicationParamsAuthority(APawn* const OwnerPawn, FSWDamageApplicationParams& OutDamageParams) const
+{
+	if (!HasAuthority() || !OwnerPawn || !WeaponConfig.DamageConfig.IsValid())
+	{
+		return false;
+	}
+
+	const UAbilitySystemComponent* const AbilitySystemComponent = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(OwnerPawn);
+	const USWAttributeSet* const Attributes = AbilitySystemComponent ? AbilitySystemComponent->GetSet<USWAttributeSet>() : nullptr;
+	if (!Attributes)
+	{
+		return false;
+	}
+
+	const int32 CombatLevel = OwnerPawn->Implements<USWCombatInterface>()
+		? FMath::Max(1, ISWCombatInterface::Execute_GetCombatLevel(OwnerPawn))
+		: 1;
+	const float RawDamage = WeaponConfig.DamageConfig.BaseDamage.GetValueAtLevel(CombatLevel)
+		+ Attributes->GetAttackPower() * WeaponConfig.DamageConfig.AttackPowerCoefficient.GetValueAtLevel(CombatLevel)
+		+ Attributes->GetSpellPower() * WeaponConfig.DamageConfig.SpellPowerCoefficient.GetValueAtLevel(CombatLevel);
+	if (!FMath::IsFinite(RawDamage) || RawDamage <= 0.f)
+	{
+		return false;
+	}
+
+	OutDamageParams.RawDamage = RawDamage;
+	OutDamageParams.DamageType = WeaponConfig.DamageConfig.DamageType;
+	OutDamageParams.bCanCritical = WeaponConfig.DamageConfig.bCanCritical;
+	OutDamageParams.EffectDurationSeconds = 0.f;
+	return true;
 }
 
 void ASWWeapon::BroadcastAmmoChanged()

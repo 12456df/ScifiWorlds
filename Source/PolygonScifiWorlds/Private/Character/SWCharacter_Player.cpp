@@ -13,8 +13,10 @@
 #include "EnhancedInputComponent.h"
 #include "GameFramework/Controller.h"
 #include "Camera/PlayerCameraManager.h"
+#include "GameplayTags/SWGameplayTags.h"
 #include "Input/SWInputConfig.h"
 #include "InputActionValue.h"
+#include "InputCoreTypes.h"
 #include "Math/RotationMatrix.h"
 #include "Movement/SWCharacterMovementComponent.h"
 #include "Player/SWPlayerController.h"
@@ -359,6 +361,28 @@ void ASWCharacter_Player::AbilityInputTagPressed(const FGameplayTag InputTag)
 
 	if (USWAbilitySystemComponent* SWAbilitySystemComponent = Cast<USWAbilitySystemComponent>(GetAbilitySystemComponent()))
 	{
+		const bool bIsSkillInput = InputTag == SWGameplayTags::Ability_Input_Skill1
+			|| InputTag == SWGameplayTags::Ability_Input_Skill2
+			|| InputTag == SWGameplayTags::Ability_Input_Skill3;
+		if (bIsSkillInput && IsAbilityUpgradeModifierDown())
+		{
+			// Alt+技能键是升级意图，不得同时作为该技能的施放按下输入。
+			UpgradeRequestInputTags.AddTag(InputTag);
+			if (ASWPlayerController* const SWPlayerController = Cast<ASWPlayerController>(GetController()))
+			{
+				SWPlayerController->RequestActiveAbilityUpgrade(InputTag);
+			}
+			return;
+		}
+
+		// 确认式施法期间，左键与第二技能键均可确认；不存在确认监听者时，第二技能键仍按普通技能输入处理。
+		if (((InputTag == SWGameplayTags::Ability_Input_Fire || InputTag == SWGameplayTags::Ability_Input_Skill2)
+			&& SWAbilitySystemComponent->TryConsumeGenericConfirmInput())
+			|| (InputTag == SWGameplayTags::Ability_Input_Aim && SWAbilitySystemComponent->TryConsumeGenericCancelInput()))
+		{
+			return;
+		}
+
 		SWAbilitySystemComponent->AbilityInputTagPressed(InputTag);
 	}
 }
@@ -370,10 +394,22 @@ void ASWCharacter_Player::AbilityInputTagReleased(const FGameplayTag InputTag)
 		return;
 	}
 
+	if (UpgradeRequestInputTags.HasTagExact(InputTag))
+	{
+		UpgradeRequestInputTags.RemoveTag(InputTag);
+		return;
+	}
+
 	if (USWAbilitySystemComponent* SWAbilitySystemComponent = Cast<USWAbilitySystemComponent>(GetAbilitySystemComponent()))
 	{
 		SWAbilitySystemComponent->AbilityInputTagReleased(InputTag);
 	}
+}
+
+bool ASWCharacter_Player::IsAbilityUpgradeModifierDown() const
+{
+	const APlayerController* const PlayerController = Cast<APlayerController>(GetController());
+	return PlayerController && (PlayerController->IsInputKeyDown(EKeys::LeftAlt) || PlayerController->IsInputKeyDown(EKeys::RightAlt));
 }
 
 void ASWCharacter_Player::InitAbilityActorInfo()

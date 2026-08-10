@@ -11,6 +11,7 @@ class USWNetworkDiagnosticsWidgetController;
 class USWAttributeOverlayWidgetController;
 class USWWeaponOverlayWidgetController;
 class USWProgressionOverlayWidgetController;
+class USWSkillOverlayWidgetController;
 
 /**
  * 本地游戏 UI 的根创建入口。
@@ -51,6 +52,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "UI|Overlay")
 	USWProgressionOverlayWidgetController* GetProgressionOverlayWidgetController();
 
+	/** 返回本地玩家主动技能栏的只读数据控制器。 */
+	UFUNCTION(BlueprintCallable, Category = "UI|Overlay")
+	USWSkillOverlayWidgetController* GetSkillOverlayWidgetController();
+
 	/**
 	 * 本地 PlayerState 或 GameState 就绪后，重新绑定已创建的 Overlay 控制器。
 	 * 仅刷新客户端只读 UI 数据，不写入任何游戏状态。
@@ -88,6 +93,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Overlay")
 	TSubclassOf<USWProgressionOverlayWidgetController> ProgressionOverlayWidgetControllerClass;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Overlay")
+	TSubclassOf<USWSkillOverlayWidgetController> SkillOverlayWidgetControllerClass;
+
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "UI|Overlay")
 	TObjectPtr<USWAttributeOverlayWidgetController> AttributeOverlayWidgetController;
 
@@ -96,4 +104,7 @@ protected:
 
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "UI|Overlay")
 	TObjectPtr<USWProgressionOverlayWidgetController> ProgressionOverlayWidgetController;
+
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "UI|Overlay")
+	TObjectPtr<USWSkillOverlayWidgetController> SkillOverlayWidgetController;
 };

@@ -21,6 +21,33 @@ struct FSWStartupAbility
 	/** 与 Input Config 中 IA 对应的输入 Tag。 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability", meta = (Categories = "Ability.Input"))
 	FGameplayTag InputTag;
+
+	/** 首次授予时写入 Ability Spec 的等级；重生后的已有 Spec 不会被该值覆盖。 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability", meta = (ClampMin = "1"))
+	int32 StartingLevel = 1;
+};
+
+/**
+ * 某个伤害生产者在服务器上生成并交给 Damage GE 的不可变伤害包。
+ * RawDamage 已包含生产者自身的基础数值与攻击力/法强加成；ExecCalc 只消费它进行命中结算。
+ */
+USTRUCT(BlueprintType)
+struct FSWDamageApplicationParams
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Damage", meta = (ClampMin = "0.0"))
+	float RawDamage = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Damage", meta = (Categories = "Damage.Type"))
+	FGameplayTag DamageType;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Damage")
+	bool bCanCritical = false;
+
+	/** 仅由使用 SetByCaller.Ability.Duration 的持续伤害 GE 消费；0 表示不提供持续时间。 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Damage", meta = (ClampMin = "0.0"))
+	float EffectDurationSeconds = 0.f;
 };
 
 /**
@@ -60,11 +87,17 @@ public:
 	/** 返回本次伤害是否由服务器判定为暴击。 */
 	bool IsCriticalHit() const { return bCriticalHit; }
 
+	/** 返回伤害生产者是否允许本次伤害进入暴击判定。 */
+	bool CanCritical() const { return bCanCritical; }
+
 	/** 返回服务器在本次物理伤害结算中使用的物理吸血比例。 */
 	float GetPhysicalLifesteal() const { return PhysicalLifesteal; }
 
 	/** 仅服务器伤害执行计算调用：记录伤害类型，供后续结算与表现读取。 */
 	void SetDamageType(const FGameplayTag InDamageType) { DamageType = InDamageType; }
+
+	/** 仅服务器伤害生产者调用：记录该伤害是否允许在 ExecCalc 中进行暴击判定。 */
+	void SetCanCritical(const bool bInCanCritical) { bCanCritical = bInCanCritical; }
 
 	/** 仅服务器伤害执行计算调用：记录暴击判定结果，客户端不得自行重掷。 */
 	void SetCriticalHit(const bool bInCriticalHit) { bCriticalHit = bInCriticalHit; }
@@ -82,6 +115,10 @@ private:
 	/** 由服务器唯一写入的暴击结果。 */
 	UPROPERTY()
 	bool bCriticalHit = false;
+
+	/** 由伤害生产者写入的暴击资格；不代表本次一定暴击。 */
+	UPROPERTY()
+	bool bCanCritical = false;
 
 	/** 本次物理伤害在服务器快照得到的吸血比例，不参与客户端伤害重算。 */
 	UPROPERTY()

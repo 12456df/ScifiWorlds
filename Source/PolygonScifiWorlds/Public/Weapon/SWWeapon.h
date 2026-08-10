@@ -117,10 +117,11 @@ private:
 	float GetEffectiveFireMontagePlayRate(float BasePlayRate) const;
 	float GetFireIntervalMultiplier() const;
 	bool IsAiming() const;
+	bool BuildDamageApplicationParamsAuthority(APawn* OwnerPawn, FSWDamageApplicationParams& OutDamageParams) const;
 	bool BuildAuthoritativeShotQuery(const FTransform& MuzzleTransform, FVector& OutDirection, FVector& OutTraceEnd) const;
-	bool ResolveProjectileAuthority(APawn* OwnerPawn, const FTransform& MuzzleTransform, const FVector& ShotDirection);
-	void ResolveHitscanAuthority(APawn* OwnerPawn, const FVector& TraceStart, const FVector& TraceEnd, FSWResolvedShot& InOutResult);
-	bool ApplyDamageEffectAuthority(AActor* HitActor);
+	bool ResolveProjectileAuthority(APawn* OwnerPawn, const FTransform& MuzzleTransform, const FVector& ShotDirection, const FSWDamageApplicationParams& DamageParams);
+	void ResolveHitscanAuthority(APawn* OwnerPawn, const FVector& TraceStart, const FVector& TraceEnd, const FSWDamageApplicationParams& DamageParams, FSWResolvedShot& InOutResult);
+	bool ApplyDamageEffectAuthority(AActor* HitActor, const FSWDamageApplicationParams& DamageParams);
 	void BroadcastAmmoChanged();
 	void ExecuteOwnerGameplayCue(FGameplayTag CueTag) const;
 	void BindMagazineCapacityMultiplierAuthority();
