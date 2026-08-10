@@ -12,24 +12,29 @@ bool FSWGameplayEffectContext::NetSerialize(FArchive& Ar, UPackageMap* Map, bool
 	uint8 RepBits = 0;
 	if (Ar.IsSaving())
 	{
-		if (bCriticalHit)
+		if (bCanCritical)
 		{
 			RepBits |= 1 << 0;
 		}
-		if (DamageType.IsValid())
+		if (bCriticalHit)
 		{
 			RepBits |= 1 << 1;
 		}
-		if (PhysicalLifesteal > 0.f && FMath::IsFinite(PhysicalLifesteal))
+		if (DamageType.IsValid())
 		{
 			RepBits |= 1 << 2;
 		}
+		if (PhysicalLifesteal > 0.f && FMath::IsFinite(PhysicalLifesteal))
+		{
+			RepBits |= 1 << 3;
+		}
 	}
 
-	Ar.SerializeBits(&RepBits, 3);
-	bCriticalHit = (RepBits & (1 << 0)) != 0;
+	Ar.SerializeBits(&RepBits, 4);
+	bCanCritical = (RepBits & (1 << 0)) != 0;
+	bCriticalHit = (RepBits & (1 << 1)) != 0;
 
-	if (RepBits & (1 << 1))
+	if (RepBits & (1 << 2))
 	{
 		DamageType.NetSerialize(Ar, Map, bOutSuccess);
 	}
@@ -38,7 +43,7 @@ bool FSWGameplayEffectContext::NetSerialize(FArchive& Ar, UPackageMap* Map, bool
 		DamageType = FGameplayTag();
 	}
 
-	if (RepBits & (1 << 2))
+	if (RepBits & (1 << 3))
 	{
 		Ar << PhysicalLifesteal;
 	}

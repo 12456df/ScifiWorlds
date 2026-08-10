@@ -10,6 +10,7 @@
 #include "UI/Widget/SWUserWidget.h"
 #include "UI/WidgetController/Overlay/SWAttributeOverlayWidgetController.h"
 #include "UI/WidgetController/Overlay/SWProgressionOverlayWidgetController.h"
+#include "UI/WidgetController/Overlay/SWSkillOverlayWidgetController.h"
 #include "UI/WidgetController/Overlay/SWWeaponOverlayWidgetController.h"
 #include "UI/WidgetController/SWNetworkDiagnosticsWidgetController.h"
 #include "UI/WidgetController/SWWidgetController.h"
@@ -171,6 +172,37 @@ USWProgressionOverlayWidgetController* ASWHUD::GetProgressionOverlayWidgetContro
 	return ProgressionOverlayWidgetController;
 }
 
+USWSkillOverlayWidgetController* ASWHUD::GetSkillOverlayWidgetController()
+{
+	if (SkillOverlayWidgetController)
+	{
+		return SkillOverlayWidgetController;
+	}
+
+	ASWPlayerController* SWPlayerController = Cast<ASWPlayerController>(PlayerOwner);
+	if (!SWPlayerController || !SWPlayerController->IsLocalController())
+	{
+		return nullptr;
+	}
+
+	UClass* ControllerClass = SkillOverlayWidgetControllerClass.Get();
+	if (!ControllerClass)
+	{
+		ControllerClass = USWSkillOverlayWidgetController::StaticClass();
+	}
+
+	SkillOverlayWidgetController = NewObject<USWSkillOverlayWidgetController>(this, ControllerClass);
+	if (SkillOverlayWidgetController)
+	{
+		const FSWWidgetControllerParams Params(SWPlayerController, SWPlayerController->GetPlayerState<ASWPlayerState>(), GetWorld() ? GetWorld()->GetGameState<ASWGameState>() : nullptr);
+		SkillOverlayWidgetController->SetWidgetControllerParams(Params);
+		SkillOverlayWidgetController->BindCallbacksToDependencies();
+		SkillOverlayWidgetController->BroadcastInitialValues();
+	}
+
+	return SkillOverlayWidgetController;
+}
+
 void ASWHUD::RefreshOverlayWidgetControllers()
 {
 	ASWPlayerController* SWPlayerController = Cast<ASWPlayerController>(PlayerOwner);
@@ -204,5 +236,12 @@ void ASWHUD::RefreshOverlayWidgetControllers()
 		ProgressionOverlayWidgetController->SetWidgetControllerParams(Params);
 		ProgressionOverlayWidgetController->BindCallbacksToDependencies();
 		ProgressionOverlayWidgetController->BroadcastInitialValues();
+	}
+
+	if (SkillOverlayWidgetController)
+	{
+		SkillOverlayWidgetController->SetWidgetControllerParams(Params);
+		SkillOverlayWidgetController->BindCallbacksToDependencies();
+		SkillOverlayWidgetController->BroadcastInitialValues();
 	}
 }

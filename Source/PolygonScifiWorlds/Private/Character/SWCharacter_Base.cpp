@@ -186,6 +186,15 @@ void ASWCharacter_Base::ApplyCombatantInitializationEffectsAuthority(const int32
 	};
 
 	ApplyEffect(CombatantDefinition->LevelAttributesEffect, TEXT("等级属性 GE"));
+
+	// ASC 可能在 PlayerState 上跨重生存活；先移除同源常驻效果，确保不会累计出多份恢复周期。
+	if (CombatantDefinition->ResourceRegenerationEffect)
+	{
+		AbilitySystemComponent->RemoveActiveGameplayEffectBySourceEffect(
+			CombatantDefinition->ResourceRegenerationEffect, AbilitySystemComponent, -1);
+		ApplyEffect(CombatantDefinition->ResourceRegenerationEffect, TEXT("资源自然恢复 GE"));
+	}
+
 	if (bRestoreVitalResources)
 	{
 		ApplyEffect(CombatantDefinition->VitalAttributesEffect, TEXT("满资源 GE"));

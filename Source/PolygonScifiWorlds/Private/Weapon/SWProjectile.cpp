@@ -6,8 +6,10 @@
 #include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystemInterface.h"
 #include "AbilitySystem/SWAbilitySystemComponent.h"
+#include "Collision/SWCollisionChannels.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "GameFramework/Pawn.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "GameplayTags/SWGameplayTags.h"
 #include "Interaction/SWCombatInterface.h"
@@ -21,9 +23,7 @@ ASWProjectile::ASWProjectile()
 
 	CollisionComponent = CreateDefaultSubobject<USphereComponent>(TEXT("CollisionComponent"));
 	CollisionComponent->InitSphereRadius(5.f);
-	CollisionComponent->SetCollisionProfileName(TEXT("BlockAll"));
-	CollisionComponent->SetNotifyRigidBodyCollision(true);
-	CollisionComponent->SetGenerateOverlapEvents(false);
+	ConfigureAuthorityCollision();
 	RootComponent = CollisionComponent;
 
 	ProjectileMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("ProjectileMesh"));
@@ -37,6 +37,22 @@ ASWProjectile::ASWProjectile()
 	ProjectileMovement->bShouldBounce = false;
 
 	CollisionComponent->OnComponentHit.AddDynamic(this, &ThisClass::OnProjectileHit);
+	CollisionComponent->OnComponentBeginOverlap.AddDynamic(this, &ThisClass::OnProjectileBeginOverlap);
+}
+
+void ASWProjectile::ConfigureAuthorityCollision()
+{
+	// 弹丸属于 Projectile 对象类型。世界阻挡它；Pawn 与屏障等对象可通过 Projectile 默认重叠接收事件。
+	CollisionComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	CollisionComponent->SetCollisionObjectType(SWCollisionChannels::Projectile);
+	CollisionComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
+	CollisionComponent->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
+	CollisionComponent->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Block);
+	CollisionComponent->SetCollisionResponseToChannel(ECC_Pawn, ECR_Block);
+	CollisionComponent->SetCollisionResponseToChannel(SWCollisionChannels::Projectile, ECR_Overlap);
+	CollisionComponent->SetCollisionResponseToChannel(SWCollisionChannels::ShieldBarrier, ECR_Overlap);
+	CollisionComponent->SetNotifyRigidBodyCollision(true);
+	CollisionComponent->SetGenerateOverlapEvents(true);
 }
 
 void ASWProjectile::BeginPlay()
@@ -50,9 +66,10 @@ void ASWProjectile::BeginPlay()
 }
 
 bool ASWProjectile::InitializeProjectileAuthority(APawn* InInstigatorPawn, const FVector& LaunchDirection,
-	const TSubclassOf<USWDamageGameplayEffect> InDamageEffectClass)
+	const TSubclassOf<USWDamageGameplayEffect> InDamageEffectClass, const FSWDamageApplicationParams& InDamageParams)
 {
-	if (!HasAuthority() || bInitialized || !ProjectileConfig.IsValid() || !InInstigatorPawn || !InDamageEffectClass)
+	if (!HasAuthority() || bInitialized || !ProjectileConfig.IsValid() || !InInstigatorPawn || !InDamageEffectClass
+		|| !FMath::IsFinite(InDamageParams.RawDamage) || InDamageParams.RawDamage <= 0.f)
 	{
 		return false;
 	}
@@ -65,7 +82,10 @@ bool ASWProjectile::InitializeProjectileAuthority(APawn* InInstigatorPawn, const
 
 	SetInstigator(InInstigatorPawn);
 	SetOwner(InInstigatorPawn);
+	// 运行时重设，防止已有蓝图子类保存的旧碰撞覆盖值破坏 Projectile 通道契约。
+	ConfigureAuthorityCollision();
 	DamageEffectClass = InDamageEffectClass;
+	DamageParams = InDamageParams;
 	CollisionComponent->IgnoreActorWhenMoving(InInstigatorPawn, true);
 	CollisionComponent->SetSphereRadius(ProjectileConfig.CollisionRadius, true);
 	ProjectileMovement->InitialSpeed = ProjectileConfig.InitialSpeed;
@@ -88,16 +108,39 @@ FVector ASWProjectile::GetLaunchVelocity() const
 	return ProjectileMovement ? ProjectileMovement->Velocity : FVector::ZeroVector;
 }
 
+bool ASWProjectile::CanBeAbsorbedByShield_Implementation() const
+{
+	return bInitialized && !bImpactHandled;
+}
+
+void ASWProjectile::AbsorbByShieldAuthority_Implementation(AActor* ShieldActor)
+{
+	if (HasAuthority() && CanBeAbsorbedByShield_Implementation())
+	{
+		Destroy();
+	}
+}
+
 void ASWProjectile::OnProjectileHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent,
 	const FVector NormalImpulse, const FHitResult& Hit)
 {
 	if (HasAuthority())
 	{
-		HandleAuthoritativeImpact(Hit);
+		HandleAuthoritativeImpact(OtherActor, Hit);
 	}
 }
 
-void ASWProjectile::HandleAuthoritativeImpact(const FHitResult& Hit)
+void ASWProjectile::OnProjectileBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
+	UPrimitiveComponent* OtherComponent, const int32 OtherBodyIndex, const bool bFromSweep, const FHitResult& SweepResult)
+{
+	// Pawn 对 Projectile 的默认响应为重叠；仍由服务器在这里执行原有命中伤害。
+	if (HasAuthority() && OtherActor && OtherActor != GetInstigator() && OtherActor->IsA<APawn>())
+	{
+		HandleAuthoritativeImpact(OtherActor, SweepResult);
+	}
+}
+
+void ASWProjectile::HandleAuthoritativeImpact(AActor* const HitActor, const FHitResult& Hit)
 {
 	if (bImpactHandled)
 	{
@@ -107,7 +150,7 @@ void ASWProjectile::HandleAuthoritativeImpact(const FHitResult& Hit)
 	bImpactHandled = true;
 	BP_OnProjectileImpact(Hit);
 
-	if (AActor* HitActor = Hit.GetActor())
+	if (HitActor)
 	{
 		ApplyDamageEffectAuthority(HitActor);
 
@@ -164,5 +207,6 @@ bool ASWProjectile::ApplyDamageEffectAuthority(AActor* const HitActor)
 		TargetAbilitySystemComponent,
 		DamageEffectClass,
 		EffectLevel,
-		this);
+		this,
+		DamageParams);
 }

@@ -15,8 +15,6 @@ namespace
 {
 	struct FSWDamageCaptureStatics
 	{
-		DECLARE_ATTRIBUTE_CAPTUREDEF(AttackPower)
-		DECLARE_ATTRIBUTE_CAPTUREDEF(SpellPower)
 		DECLARE_ATTRIBUTE_CAPTUREDEF(PhysicalPenetrationPercent)
 		DECLARE_ATTRIBUTE_CAPTUREDEF(MagicalPenetrationPercent)
 		DECLARE_ATTRIBUTE_CAPTUREDEF(PhysicalPenetrationFlat)
@@ -29,8 +27,6 @@ namespace
 
 		FSWDamageCaptureStatics()
 		{
-			DEFINE_ATTRIBUTE_CAPTUREDEF(USWAttributeSet, AttackPower, Source, true)
-			DEFINE_ATTRIBUTE_CAPTUREDEF(USWAttributeSet, SpellPower, Source, true)
 			DEFINE_ATTRIBUTE_CAPTUREDEF(USWAttributeSet, PhysicalPenetrationPercent, Source, true)
 			DEFINE_ATTRIBUTE_CAPTUREDEF(USWAttributeSet, MagicalPenetrationPercent, Source, true)
 			DEFINE_ATTRIBUTE_CAPTUREDEF(USWAttributeSet, PhysicalPenetrationFlat, Source, true)
@@ -71,8 +67,6 @@ namespace
 USWExecCalc_Damage::USWExecCalc_Damage()
 {
 	const FSWDamageCaptureStatics& Statics = DamageCaptureStatics();
-	RelevantAttributesToCapture.Add(Statics.AttackPowerDef);
-	RelevantAttributesToCapture.Add(Statics.SpellPowerDef);
 	RelevantAttributesToCapture.Add(Statics.PhysicalPenetrationPercentDef);
 	RelevantAttributesToCapture.Add(Statics.MagicalPenetrationPercentDef);
 	RelevantAttributesToCapture.Add(Statics.PhysicalPenetrationFlatDef);
@@ -111,12 +105,22 @@ void USWExecCalc_Damage::Execute_Implementation(
 		return;
 	}
 
-	const FSWDamageChannelSpec& DamageChannel = DamageEffect->GetDamageChannel();
-	if (DamageChannel.DamageType != SWGameplayTags::Damage_Type_Physical
-		&& DamageChannel.DamageType != SWGameplayTags::Damage_Type_Magical
-		&& DamageChannel.DamageType != SWGameplayTags::Damage_Type_True)
+	FGameplayEffectContext* const RawContext = Spec.GetContext().Get();
+	FSWGameplayEffectContext* const SWContext = RawContext && RawContext->GetScriptStruct() == FSWGameplayEffectContext::StaticStruct()
+		? static_cast<FSWGameplayEffectContext*>(RawContext)
+		: nullptr;
+	if (!SWContext)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("伤害 GE 的 DamageType 无效：%s"), *GetNameSafe(Spec.Def));
+		UE_LOG(LogTemp, Warning, TEXT("伤害 GE 未使用 FSWGameplayEffectContext：%s"), *GetNameSafe(Spec.Def));
+		return;
+	}
+
+	const FGameplayTag DamageType = SWContext->GetDamageType();
+	if (DamageType != SWGameplayTags::Damage_Type_Physical
+		&& DamageType != SWGameplayTags::Damage_Type_Magical
+		&& DamageType != SWGameplayTags::Damage_Type_True)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("伤害 GE 缺少有效伤害类型：%s"), *GetNameSafe(Spec.Def));
 		return;
 	}
 
@@ -125,16 +129,11 @@ void USWExecCalc_Damage::Execute_Implementation(
 	EvaluationParameters.TargetTags = Spec.CapturedTargetTags.GetAggregatedTags();
 
 	const FSWDamageCaptureStatics& Statics = DamageCaptureStatics();
-	const float AttackPower = CaptureMagnitude(ExecutionParams, Statics.AttackPowerDef, EvaluationParameters);
-	const float SpellPower = CaptureMagnitude(ExecutionParams, Statics.SpellPowerDef, EvaluationParameters);
-	const float RawDamage = FMath::Max(0.f,
-		DamageChannel.BaseMagnitude.GetValueAtLevel(Spec.GetLevel())
-		+ AttackPower * DamageChannel.AttackPowerCoefficient
-		+ SpellPower * DamageChannel.SpellPowerCoefficient);
+	const float RawDamage = FMath::Max(0.f, Spec.GetSetByCallerMagnitude(SWGameplayTags::SetByCaller_Damage_Raw, false, 0.f));
 
 	float FinalDamage = RawDamage;
 	const USWDamageCalculationConfig* const DamageConfig = DamageEffect->GetDamageCalculationConfig();
-	if (DamageChannel.DamageType == SWGameplayTags::Damage_Type_Physical)
+	if (DamageType == SWGameplayTags::Damage_Type_Physical)
 	{
 		FinalDamage = CalculateMitigatedDamage(
 			RawDamage,
@@ -143,7 +142,7 @@ void USWExecCalc_Damage::Execute_Implementation(
 			CaptureMagnitude(ExecutionParams, Statics.PhysicalPenetrationFlatDef, EvaluationParameters),
 			FMath::Max(0.001f, DamageConfig->PhysicalArmorMitigationHalfPoint));
 	}
-	else if (DamageChannel.DamageType == SWGameplayTags::Damage_Type_Magical)
+	else if (DamageType == SWGameplayTags::Damage_Type_Magical)
 	{
 		FinalDamage = CalculateMitigatedDamage(
 			RawDamage,
@@ -154,7 +153,7 @@ void USWExecCalc_Damage::Execute_Implementation(
 	}
 
 	bool bCriticalHit = false;
-	if (DamageChannel.bCanCritical)
+	if (SWContext->CanCritical())
 	{
 		const float CriticalChance = FMath::Clamp(
 			CaptureMagnitude(ExecutionParams, Statics.CriticalChanceDef, EvaluationParameters),
@@ -167,7 +166,7 @@ void USWExecCalc_Damage::Execute_Implementation(
 		}
 	}
 
-	const float CapturedPhysicalLifesteal = DamageChannel.DamageType == SWGameplayTags::Damage_Type_Physical
+	const float CapturedPhysicalLifesteal = DamageType == SWGameplayTags::Damage_Type_Physical
 		? CaptureMagnitude(ExecutionParams, Statics.PhysicalLifestealDef, EvaluationParameters)
 		: 0.f;
 	const float PhysicalLifesteal = FMath::IsFinite(CapturedPhysicalLifesteal)
@@ -175,15 +174,8 @@ void USWExecCalc_Damage::Execute_Implementation(
 		: 0.f;
 
 	// EffectContext 跨越执行计算与 AttributeSet 消费阶段，因此保存本次伤害结果及吸血快照。
-	FGameplayEffectContextHandle EffectContextHandle = Spec.GetContext();
-	FGameplayEffectContext* const RawContext = EffectContextHandle.Get();
-	if (RawContext && RawContext->GetScriptStruct() == FSWGameplayEffectContext::StaticStruct())
-	{
-		FSWGameplayEffectContext* const SWContext = static_cast<FSWGameplayEffectContext*>(RawContext);
-		SWContext->SetDamageType(DamageChannel.DamageType);
-		SWContext->SetCriticalHit(bCriticalHit);
-		SWContext->SetPhysicalLifesteal(PhysicalLifesteal);
-	}
+	SWContext->SetCriticalHit(bCriticalHit);
+	SWContext->SetPhysicalLifesteal(PhysicalLifesteal);
 
 	if (FinalDamage > 0.f)
 	{

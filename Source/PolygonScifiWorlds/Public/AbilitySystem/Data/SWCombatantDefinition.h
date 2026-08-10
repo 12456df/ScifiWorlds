@@ -24,6 +24,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combatant|Initialization")
 	TSubclassOf<UGameplayEffect> VitalAttributesEffect;
 
+	/** 常驻的资源自然恢复 GE；应配置为 Infinite + Periodic，并由角色 ASC 持有。 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combatant|Initialization")
+	TSubclassOf<UGameplayEffect> ResourceRegenerationEffect;
+
 	/** 以死亡时战斗等级求值的击杀经验。 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combatant|Rewards")
 	FScalableFloat XPRewardByLevel;

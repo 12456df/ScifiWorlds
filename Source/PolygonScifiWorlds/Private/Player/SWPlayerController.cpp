@@ -60,6 +60,39 @@ void ASWPlayerController::ClientShowDamageNumber_Implementation(const FSWDamageN
 	BP_ShowDamageNumber(Payload);
 }
 
+void ASWPlayerController::RequestActiveAbilityUpgrade(const FGameplayTag InputTag)
+{
+	if (!InputTag.IsValid())
+	{
+		return;
+	}
+
+	if (HasAuthority())
+	{
+		ProcessActiveAbilityUpgradeRequestAuthority(InputTag);
+		return;
+	}
+
+	ServerRequestActiveAbilityUpgrade(InputTag);
+}
+
+void ASWPlayerController::ServerRequestActiveAbilityUpgrade_Implementation(const FGameplayTag InputTag)
+{
+	ProcessActiveAbilityUpgradeRequestAuthority(InputTag);
+}
+
+void ASWPlayerController::ProcessActiveAbilityUpgradeRequestAuthority(const FGameplayTag InputTag)
+{
+	ASWPlayerState* const SWPlayerState = GetPlayerState<ASWPlayerState>();
+	USWAbilitySystemComponent* const AbilitySystemComponent = SWPlayerState
+		? Cast<USWAbilitySystemComponent>(SWPlayerState->GetAbilitySystemComponent())
+		: nullptr;
+	if (AbilitySystemComponent)
+	{
+		AbilitySystemComponent->TryUpgradeActiveAbilityAuthority(InputTag);
+	}
+}
+
 void ASWPlayerController::ApplyGameplayMappingContext()
 {
 	if (!IsLocalController() || !InputConfig || !InputConfig->DefaultMappingContext)
