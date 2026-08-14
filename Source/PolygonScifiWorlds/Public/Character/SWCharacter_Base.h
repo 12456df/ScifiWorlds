@@ -62,6 +62,12 @@ protected:
 	/** 仅服务器调用：在 ASC 完成 Owner/Avatar 绑定后应用该角色的初始化 GE。 */
 	void ApplyCombatantInitializationEffectsAuthority(int32 EffectLevel, bool bRestoreVitalResources);
 
+	/**
+	 * 仅服务器调用：将当前资源恢复到 ASC 聚合后的最终上限。
+	 * 必须在等级、装备等会修改最大资源的常驻 GE 均已收敛后调用；不重新应用任何 GE。
+	 */
+	void RestoreVitalResourcesToMaximumAuthority();
+
 	/** 复制到客户端及服务器首次提交时调用；蓝图在此实现布娃娃等纯表现。 */
 	void ApplyDeathStatePresentation();
 
@@ -91,6 +97,6 @@ protected:
 	FSWOnDeath OnDeath;
 
 private:
-	/** 仅服务器调用：死亡提交成功后，按被击杀者配置向有效敌对玩家发放经验。 */
-	void GrantExperienceForDeathAuthority(const FSWDeathContext& DeathContext);
+	/** 仅服务器调用：死亡唯一提交成功后，按死亡者配置向合法敌方击杀者结算经验与金币。 */
+	void GrantDeathRewardsAuthority(const FSWDeathContext& DeathContext);
 };

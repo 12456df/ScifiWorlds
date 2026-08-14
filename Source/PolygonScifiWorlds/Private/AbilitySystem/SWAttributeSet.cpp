@@ -85,23 +85,49 @@ void USWAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, fl
 	else if (Attribute == GetMaxHealthAttribute())
 	{
 		NewValue = FMath::Max(0.f, NewValue);
-		// 最大生命降低时只截断当前生命，不在最大值恢复后返还被截断的生命。
-		SetHealth(FMath::Clamp(GetHealth(), 0.f, NewValue));
 	}
 	else if (Attribute == GetMaxManaAttribute())
 	{
 		NewValue = FMath::Max(0.f, NewValue);
-		// 最大蓝量降低时只截断当前蓝量，不在最大值恢复后返还被截断的蓝量。
-		SetMana(FMath::Clamp(GetMana(), 0.f, NewValue));
 	}
 	else if (Attribute == GetMaxStaminaAttribute())
 	{
 		NewValue = FMath::Max(0.f, NewValue);
-		SetStamina(FMath::Clamp(GetStamina(), 0.f, NewValue));
 	}
 	else if (Attribute == GetPhysicalPenetrationPercentAttribute() || Attribute == GetMagicalPenetrationPercentAttribute())
 	{
 		NewValue = FMath::Clamp(NewValue, 0.f, 1.f);
+	}
+}
+
+void USWAttributeSet::PostAttributeChange(const FGameplayAttribute& Attribute, const float OldValue, const float NewValue)
+{
+	Super::PostAttributeChange(Attribute, OldValue, NewValue);
+
+	// 当前资源由服务器权威维护。客户端只接收 Health/Mana/Stamina 与最大值的复制结果，
+	// 避免客户端在装备、等级或 Buff 变更时再次写入基础属性。
+	const AActor* const OwnerActor = GetOwningAbilitySystemComponent()
+		? GetOwningAbilitySystemComponent()->GetOwnerActor()
+		: nullptr;
+	if (!OwnerActor || !OwnerActor->HasAuthority() || OldValue <= KINDA_SMALL_NUMBER || FMath::IsNearlyEqual(OldValue, NewValue))
+	{
+		return;
+	}
+
+	if (Attribute == GetMaxHealthAttribute())
+	{
+		const float HealthPercent = FMath::Clamp(GetHealth() / OldValue, 0.f, 1.f);
+		SetHealth(HealthPercent * NewValue);
+	}
+	else if (Attribute == GetMaxManaAttribute())
+	{
+		const float ManaPercent = FMath::Clamp(GetMana() / OldValue, 0.f, 1.f);
+		SetMana(ManaPercent * NewValue);
+	}
+	else if (Attribute == GetMaxStaminaAttribute())
+	{
+		const float StaminaPercent = FMath::Clamp(GetStamina() / OldValue, 0.f, 1.f);
+		SetStamina(StaminaPercent * NewValue);
 	}
 }
 

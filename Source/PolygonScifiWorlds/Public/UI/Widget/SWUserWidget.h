@@ -30,7 +30,10 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Transient, Category = "UI")
 	TObjectPtr<UObject> WidgetController;
 
-	/** WidgetController 设置完成后调用，蓝图只在此处绑定表现，不写入玩法状态。 */
+	/**
+	 * WidgetController 设置完成后调用；蓝图只在此处绑定表现，不写入玩法状态。
+	 * 蓝图事件返回后，基类才请求首份快照，确保不会错过初始化广播。
+	 */
 	UFUNCTION(BlueprintImplementableEvent, Category = "UI")
 	void BP_OnWidgetControllerSet();
 };

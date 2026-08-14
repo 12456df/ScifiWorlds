@@ -9,9 +9,11 @@
 #include "Player/SWPlayerState.h"
 #include "UI/Widget/SWUserWidget.h"
 #include "UI/WidgetController/Overlay/SWAttributeOverlayWidgetController.h"
+#include "UI/WidgetController/Overlay/SWEquipmentOverlayWidgetController.h"
 #include "UI/WidgetController/Overlay/SWProgressionOverlayWidgetController.h"
 #include "UI/WidgetController/Overlay/SWSkillOverlayWidgetController.h"
 #include "UI/WidgetController/Overlay/SWWeaponOverlayWidgetController.h"
+#include "UI/WidgetController/SWShopWidgetController.h"
 #include "UI/WidgetController/SWNetworkDiagnosticsWidgetController.h"
 #include "UI/WidgetController/SWWidgetController.h"
 
@@ -75,7 +77,6 @@ USWNetworkDiagnosticsWidgetController* ASWHUD::GetNetworkDiagnosticsWidgetContro
 		GetWorld() ? GetWorld()->GetGameState<ASWGameState>() : nullptr);
 	NetworkDiagnosticsWidgetController->SetWidgetControllerParams(Params);
 	NetworkDiagnosticsWidgetController->BindCallbacksToDependencies();
-	NetworkDiagnosticsWidgetController->BroadcastInitialValues();
 	return NetworkDiagnosticsWidgetController;
 }
 
@@ -104,7 +105,6 @@ USWAttributeOverlayWidgetController* ASWHUD::GetAttributeOverlayWidgetController
 		const FSWWidgetControllerParams Params(SWPlayerController, SWPlayerController->GetPlayerState<ASWPlayerState>(), GetWorld() ? GetWorld()->GetGameState<ASWGameState>() : nullptr);
 		AttributeOverlayWidgetController->SetWidgetControllerParams(Params);
 		AttributeOverlayWidgetController->BindCallbacksToDependencies();
-		AttributeOverlayWidgetController->BroadcastInitialValues();
 	}
 
 	return AttributeOverlayWidgetController;
@@ -135,7 +135,6 @@ USWWeaponOverlayWidgetController* ASWHUD::GetWeaponOverlayWidgetController()
 		const FSWWidgetControllerParams Params(SWPlayerController, SWPlayerController->GetPlayerState<ASWPlayerState>(), GetWorld() ? GetWorld()->GetGameState<ASWGameState>() : nullptr);
 		WeaponOverlayWidgetController->SetWidgetControllerParams(Params);
 		WeaponOverlayWidgetController->BindCallbacksToDependencies();
-		WeaponOverlayWidgetController->BroadcastInitialValues();
 	}
 
 	return WeaponOverlayWidgetController;
@@ -166,7 +165,6 @@ USWProgressionOverlayWidgetController* ASWHUD::GetProgressionOverlayWidgetContro
 		const FSWWidgetControllerParams Params(SWPlayerController, SWPlayerController->GetPlayerState<ASWPlayerState>(), GetWorld() ? GetWorld()->GetGameState<ASWGameState>() : nullptr);
 		ProgressionOverlayWidgetController->SetWidgetControllerParams(Params);
 		ProgressionOverlayWidgetController->BindCallbacksToDependencies();
-		ProgressionOverlayWidgetController->BroadcastInitialValues();
 	}
 
 	return ProgressionOverlayWidgetController;
@@ -197,10 +195,69 @@ USWSkillOverlayWidgetController* ASWHUD::GetSkillOverlayWidgetController()
 		const FSWWidgetControllerParams Params(SWPlayerController, SWPlayerController->GetPlayerState<ASWPlayerState>(), GetWorld() ? GetWorld()->GetGameState<ASWGameState>() : nullptr);
 		SkillOverlayWidgetController->SetWidgetControllerParams(Params);
 		SkillOverlayWidgetController->BindCallbacksToDependencies();
-		SkillOverlayWidgetController->BroadcastInitialValues();
 	}
 
 	return SkillOverlayWidgetController;
+}
+
+USWEquipmentOverlayWidgetController* ASWHUD::GetEquipmentOverlayWidgetController()
+{
+	if (EquipmentOverlayWidgetController)
+	{
+		return EquipmentOverlayWidgetController;
+	}
+
+	ASWPlayerController* SWPlayerController = Cast<ASWPlayerController>(PlayerOwner);
+	if (!SWPlayerController || !SWPlayerController->IsLocalController())
+	{
+		return nullptr;
+	}
+
+	UClass* ControllerClass = EquipmentOverlayWidgetControllerClass.Get();
+	if (!ControllerClass)
+	{
+		ControllerClass = USWEquipmentOverlayWidgetController::StaticClass();
+	}
+
+	EquipmentOverlayWidgetController = NewObject<USWEquipmentOverlayWidgetController>(this, ControllerClass);
+	if (EquipmentOverlayWidgetController)
+	{
+		const FSWWidgetControllerParams Params(SWPlayerController, SWPlayerController->GetPlayerState<ASWPlayerState>(), GetWorld() ? GetWorld()->GetGameState<ASWGameState>() : nullptr);
+		EquipmentOverlayWidgetController->SetWidgetControllerParams(Params);
+		EquipmentOverlayWidgetController->BindCallbacksToDependencies();
+	}
+
+	return EquipmentOverlayWidgetController;
+}
+
+USWShopWidgetController* ASWHUD::GetShopWidgetController()
+{
+	if (ShopWidgetController)
+	{
+		return ShopWidgetController;
+	}
+
+	ASWPlayerController* const SWPlayerController = Cast<ASWPlayerController>(PlayerOwner);
+	if (!SWPlayerController || !SWPlayerController->IsLocalController())
+	{
+		return nullptr;
+	}
+
+	UClass* ControllerClass = ShopWidgetControllerClass.Get();
+	if (!ControllerClass)
+	{
+		ControllerClass = USWShopWidgetController::StaticClass();
+	}
+
+	ShopWidgetController = NewObject<USWShopWidgetController>(this, ControllerClass);
+	if (ShopWidgetController)
+	{
+		const FSWWidgetControllerParams Params(SWPlayerController, SWPlayerController->GetPlayerState<ASWPlayerState>(), GetWorld() ? GetWorld()->GetGameState<ASWGameState>() : nullptr);
+		ShopWidgetController->SetWidgetControllerParams(Params);
+		ShopWidgetController->BindCallbacksToDependencies();
+	}
+
+	return ShopWidgetController;
 }
 
 void ASWHUD::RefreshOverlayWidgetControllers()
@@ -243,5 +300,19 @@ void ASWHUD::RefreshOverlayWidgetControllers()
 		SkillOverlayWidgetController->SetWidgetControllerParams(Params);
 		SkillOverlayWidgetController->BindCallbacksToDependencies();
 		SkillOverlayWidgetController->BroadcastInitialValues();
+	}
+
+	if (EquipmentOverlayWidgetController)
+	{
+		EquipmentOverlayWidgetController->SetWidgetControllerParams(Params);
+		EquipmentOverlayWidgetController->BindCallbacksToDependencies();
+		EquipmentOverlayWidgetController->BroadcastInitialValues();
+	}
+
+	if (ShopWidgetController)
+	{
+		ShopWidgetController->SetWidgetControllerParams(Params);
+		ShopWidgetController->BindCallbacksToDependencies();
+		ShopWidgetController->BroadcastInitialValues();
 	}
 }

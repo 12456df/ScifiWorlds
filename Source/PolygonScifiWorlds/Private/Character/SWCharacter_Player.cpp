@@ -438,6 +438,8 @@ void ASWCharacter_Player::InitAbilityActorInfo()
 	{
 		BindPlayerStateProgression(SWPlayerState);
 		ApplyCombatantInitializationEffectsAuthority(SWPlayerState->GetPlayerLevel(), true);
+		SWPlayerState->EnsureEquipmentEffectsAppliedAuthority();
+		RestoreVitalResourcesToMaximumAuthority();
 
 		if (USWAbilitySystemComponent* SWAbilitySystemComponent = Cast<USWAbilitySystemComponent>(PlayerASC))
 		{

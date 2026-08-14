@@ -35,6 +35,7 @@ public:
 protected:
 	/** 在 GameState 已存在后发布本局的全局成长配置。 */
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	/**
 	 * 在玩家控制器与 PlayerState 已创建后、后续出生流程前验证选队参数。
@@ -70,6 +71,9 @@ protected:
 	/** 比赛进入 InProgress 后记录全体客户端可读取的开局时间。 */
 	virtual void HandleMatchHasStarted() override;
 
+	/** 比赛结束后停止被动金币 Timer，避免结束状态下保留无效回调。 */
+	virtual void HandleMatchHasEnded() override;
+
 	/** 仅在服务器 GameMode 中按玩家已分配的队伍标签选择出生点。 */
 	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
 
@@ -84,6 +88,12 @@ protected:
 
 	/** 当所有活动玩家离开时清除准备期截止时间。 */
 	void CancelWarmupIfNoActivePlayers();
+
+	/** 仅服务器调用：开始每秒一次的被动金币结算。 */
+	void StartPassiveGoldIncomeAuthority();
+
+	/** 仅服务器调用：按当前等级向全部有效队伍玩家结算一次被动金币。 */
+	void GrantPassiveGoldIncomeAuthority();
 
 	/** 准备期长度；首名有效玩家加入后开始计时。 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "比赛规则", meta = (ClampMin = "0.0"))
@@ -101,6 +111,17 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat|Progression")
 	TObjectPtr<class USWProgressionData> ProgressionData;
 
+	/** 本局初始金币、每秒收入曲线与金币上限；由 GameState 复制为只读配置。 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Economy")
+	TObjectPtr<class USWEconomyData> EconomyData;
+
+	/** 本局固定商品目录；仅由服务器发布给 GameState，客户端只读浏览。 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Shop")
+	TObjectPtr<class USWShopCatalogData> ShopCatalogData;
+
 	/** 仅服务器维护；每名玩家至多保留一个重生计时器，不复制给客户端。 */
 	TMap<TWeakObjectPtr<class APlayerController>, FTimerHandle> PlayerRespawnTimers;
+
+	/** 服务器唯一被动金币计时器；每秒结算一次，不使用 Tick。 */
+	FTimerHandle PassiveGoldIncomeTimer;
 };

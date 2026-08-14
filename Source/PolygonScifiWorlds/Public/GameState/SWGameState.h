@@ -8,7 +8,9 @@
 #include "SWGameState.generated.h"
 
 class ASWGameMode;
+class USWEconomyData;
 class USWProgressionData;
+class USWShopCatalogData;
 
 /**
  * Dedicated Server 采集并复制给所有客户端的网络摘要。
@@ -104,6 +106,14 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Progression")
 	const USWProgressionData* GetProgressionData() const { return ProgressionData; }
 
+	/** 返回本局经济配置；服务器写入、客户端只读，用于 UI 与诊断展示。 */
+	UFUNCTION(BlueprintPure, Category = "Economy")
+	const USWEconomyData* GetEconomyData() const { return EconomyData; }
+
+	/** 本局固定商店目录；服务器配置，所有客户端只读，用于本地浏览与生成 UI。 */
+	UFUNCTION(BlueprintPure, Category = "Shop")
+	const USWShopCatalogData* GetShopCatalogData() const { return ShopCatalogData; }
+
 	/** 返回最近一次由服务器采样并复制的网络摘要。 */
 	UFUNCTION(BlueprintPure, Category = "Network Diagnostics")
 	FSWServerNetworkSnapshot GetServerNetworkSnapshot() const { return ServerNetworkSnapshot; }
@@ -126,6 +136,8 @@ private:
 	void RecordTeamKill(ESWTeamId TeamId);
 	void RecordTowerDestroyed(ESWTeamId TeamId);
 	void SetProgressionDataAuthority(USWProgressionData* NewProgressionData);
+	void SetEconomyDataAuthority(USWEconomyData* NewEconomyData);
+	void SetShopCatalogDataAuthority(USWShopCatalogData* NewShopCatalogData);
 
 	FSWTeamMatchStats* GetMutableTeamMatchStats(ESWTeamId TeamId);
 
@@ -155,6 +167,14 @@ private:
 	/** 本局全局成长配置的已复制只读入口；具体升级规则在 M05 后续步骤消费它。 */
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Progression", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USWProgressionData> ProgressionData;
+
+	/** 本局经济规则的只读复制入口；金币真值仍属于各自 PlayerState。 */
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Economy", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USWEconomyData> EconomyData;
+
+	/** 不含玩家私有状态的固定商品目录；客户端仅供浏览，服务器交易仍重新验证。 */
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Shop", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USWShopCatalogData> ShopCatalogData;
 
 	/** 服务器每秒更新一次并复制；所有字段均为只读诊断信息。 */
 	UPROPERTY(ReplicatedUsing = OnRep_ServerNetworkSnapshot, BlueprintReadOnly, Category = "Network Diagnostics", meta = (AllowPrivateAccess = "true"))
