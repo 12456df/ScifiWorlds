@@ -12,6 +12,8 @@ class USWAttributeOverlayWidgetController;
 class USWWeaponOverlayWidgetController;
 class USWProgressionOverlayWidgetController;
 class USWSkillOverlayWidgetController;
+class USWEquipmentOverlayWidgetController;
+class USWShopWidgetController;
 
 /**
  * 本地游戏 UI 的根创建入口。
@@ -56,6 +58,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "UI|Overlay")
 	USWSkillOverlayWidgetController* GetSkillOverlayWidgetController();
 
+	/** 返回本地玩家固定六槽装备栏的只读数据控制器。 */
+	UFUNCTION(BlueprintCallable, Category = "UI|Overlay")
+	USWEquipmentOverlayWidgetController* GetEquipmentOverlayWidgetController();
+
+	/** 返回本地商店界面的只读数据控制器；Widget 的创建、Tab 开关和输入模式仍由后续蓝图负责。 */
+	UFUNCTION(BlueprintCallable, Category = "UI|Shop")
+	USWShopWidgetController* GetShopWidgetController();
+
 	/**
 	 * 本地 PlayerState 或 GameState 就绪后，重新绑定已创建的 Overlay 控制器。
 	 * 仅刷新客户端只读 UI 数据，不写入任何游戏状态。
@@ -96,6 +106,12 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Overlay")
 	TSubclassOf<USWSkillOverlayWidgetController> SkillOverlayWidgetControllerClass;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Overlay")
+	TSubclassOf<USWEquipmentOverlayWidgetController> EquipmentOverlayWidgetControllerClass;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Shop")
+	TSubclassOf<USWShopWidgetController> ShopWidgetControllerClass;
+
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "UI|Overlay")
 	TObjectPtr<USWAttributeOverlayWidgetController> AttributeOverlayWidgetController;
 
@@ -107,4 +123,10 @@ protected:
 
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "UI|Overlay")
 	TObjectPtr<USWSkillOverlayWidgetController> SkillOverlayWidgetController;
+
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "UI|Overlay")
+	TObjectPtr<USWEquipmentOverlayWidgetController> EquipmentOverlayWidgetController;
+
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "UI|Shop")
+	TObjectPtr<USWShopWidgetController> ShopWidgetController;
 };

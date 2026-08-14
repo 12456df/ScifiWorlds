@@ -590,5 +590,9 @@ M07 最小 UI 只用于技能闭环和验收；M14 可以重做布局和视觉�
 
 ### 2026-08-10 — M07 完成验证
 
+### 2026-08-11 — 技能充能加成资格修正
+
+- Shield 是允许装备扩充次数的充能技能，保留 `bUseAbilityChargeBonus = true`；PortalSphere 是固定单次施放技能，显式设为 `false`。两者基础 `MaxChargesByLevel` 仍分别由自己的技能数据配置。
+
 - 已完成两个首发样例技能的本地 Dedicated Server 双客户端验证，覆盖技能施放、目标/效果、Mana 消耗、冷却/充能、技能升级、死亡重生后的状态恢复与最小技能栏显示。
 - Development Editor、Game、Server 三个 Target 均构建成功；M07 达到当前收缩范围的完成门槛。Skill3 保持空槽，留待后续技能内容开发。

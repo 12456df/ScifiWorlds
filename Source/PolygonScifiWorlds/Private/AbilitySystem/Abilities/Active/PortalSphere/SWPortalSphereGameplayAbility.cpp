@@ -15,6 +15,8 @@ USWPortalSphereGameplayAbility::USWPortalSphereGameplayAbility()
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::LocalPredicted;
 	AbilityIdTag = SWGameplayTags::Ability_Skill_PortalSphere;
 	CooldownTag = SWGameplayTags::Cooldown_Ability_PortalSphere;
+	// PortalSphere 始终为单次施放技能；装备的通用充能加成不得改变其最大次数。
+	bUseAbilityChargeBonus = false;
 }
 
 float USWPortalSphereGameplayAbility::GetBaseMagicDamagePerTick(const int32 AbilityLevel) const

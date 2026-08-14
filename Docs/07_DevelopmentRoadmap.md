@@ -1,8 +1,8 @@
 # ScifiWorlds 模块开发路线图
 
 **状态：** Approved（Baseline v1）
-**最后更新：** 2026-08-07
-**当前模块：** M07 — 主动技能框架（设计中）
+**最后更新：** 2026-08-15
+**当前模块：** M10 — 路线与兵线生成（待开始）
 
 ## 目的
 
@@ -24,8 +24,8 @@
 | M05 | 战斗生命循环 | M03、M04 | 队伍关系、等级属性初始化、伤害、生命、击杀经验、死亡、按等级重生和临时无敌由服务器权威运行并正确复制；最小战斗 HUD 与伤害数字接入只读数据源 | Completed | `feat: add combat lifecycle` |
 | M06 | 射击命中结算与扩展 | M04、M05 | 在 M04 固定武器闭环上完成命中扫描/投射物统一契约、伤害接入、角色射击差异化和服务器命中验证；同时收尾 M05 物理吸血并完成 SCI-6/SCI-7 | Completed | `feat: add authoritative shooting resolution` |
 | M07 | 主动技能框架 | M03、M04、M05 | 扩展 M04 的 Input Tag → GAS Ability 通道；完成三个可扩展技能槽，其中配置两个首发样例技能；完成独立技能等级表、AbilityPoints 升级、AttributeSet 修正、目标、消耗、冷却/充能、取消、预测、Gameplay Cue 与最小冷却 UI；至少一个样例主动技能通过网络测试。Skill3 留作后续内容扩展，不是 M07 完成前置 | Completed | `feat: add gameplay ability pipeline` |
-| M08 | 装备与技能修正 | M03、M07 | 装备定义和修正聚合完成；可按适用性修改伤害、持续时间、范围、冷却和次数 | Not Started | `feat: add equipment ability modifiers` |
-| M09 | 经济、背包与商店 | M02、M08 | 货币、物品持有、购买/出售、服务器校验、复制和重新加入后的状态恢复完成 | Not Started | `feat: add economy inventory and shop` |
+| M08 | 装备与技能修正 | M03、M07 | 数据驱动装备定义和 Infinite GE 修正完成；按槽应用/移除、叠加、重生保留和失败回滚正确；武器与技能通过 AttributeSet 聚合值受到修正 | Completed | `feat: complete M08 equipment modifiers and M09 economy shop` |
+| M09 | 经济、背包与商店 | M02、M08 | PlayerState 金币、等级击杀赏金、被动收入、六槽装备栏、商店区域、Tab 浏览、购买/出售原子事务、OwnerOnly 复制和重生保留完成 | Completed | `feat: complete M08 equipment modifiers and M09 economy shop` |
 | M10 | 路线与兵线生成 | M02 | 三条路线、出生点、波次和双方周期生成均由数据驱动，并由服务器控制 | Not Started | `feat: add lane and wave system` |
 | M11 | 小兵 AI 与战斗 | M05、M10 | 小兵沿线移动、选择目标、攻击和死亡完整运行；AI 由服务器执行，客户端只接收必要状态 | Not Started | `feat: add networked minion AI` |
 | M12 | 防御塔与水晶 | M05、M10、M11 | 队伍归属、攻击、受击、路线推进约束和水晶状态完成并由服务器权威同步 | Not Started | `feat: add towers and team crystals` |
@@ -80,6 +80,8 @@ M00 的目标是建立足以安全开始开发的功能方向与技术规范，�
 | M05 | `feat: add combat lifecycle` | 2026-08-05 | 队伍关系、等级属性初始化、伤害、击杀经验、死亡、重生、临时无敌、战斗 HUD 与伤害数字完成。Development Editor/Game/Server Target 构建成功；Staged DS 加双客户端完成验证。后续动画、命中表现与资源恢复事项已登记至 Linear Backlog。 |
 | M06 | `feat: add authoritative shooting resolution` | 2026-08-07 | 物理吸血、投射物与 Hitscan 统一服务器权威伤害结算、射击 Montage/Section/Notify 契约完成；开火与瞄准仅影响手臂，换弹保持上半身分层，枪口与瞄准方向表现已验证。Development Editor/Game/Server Target 构建成功；Staged DS 加双客户端完成命中、伤害、吸血、弹药与动画验证。 |
 | M07 | `feat: add gameplay ability pipeline` | 2026-08-10 | 三固定可扩展技能槽、两个首发样例技能、独立等级、AbilityPoints 升级、资源消耗、目标验证、冷却/充能、确认式施法、技能栏与升级加号完成。Development Editor/Game/Server Target 构建成功；Staged DS 加双客户端完成技能施放、效果、消耗、冷却/充能、升级及死亡重生后的状态验证。Skill3 按收缩范围保留为空槽。 |
+| M08 | `feat: complete M08 equipment modifiers and M09 economy shop` | 2026-08-15 | 数据驱动装备定义、Infinite GE 槽位应用/移除、装备重生保留与最大资源按比例换算完成；首批八件装备覆盖主要 AttributeSet 修正并通过验证。Development Editor/Game/Server Target 构建成功；Staged DS 加双客户端完成装备属性、重生保留和 UI 验证。 |
+| M09 | `feat: complete M08 equipment modifiers and M09 economy shop` | 2026-08-15 | PlayerState 金币、等级击杀赏金、被动收入、六槽装备栏、交易区域、Tab 商店界面与服务器权威购买/出售原子事务完成。Development Editor/Game/Server Target 构建成功；Staged DS 加双客户端完成金币、交易、装备生效/出售、死亡重生与 UI 验证。 |
 
 ## 路线图变更规则
 

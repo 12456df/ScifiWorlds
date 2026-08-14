@@ -8,6 +8,8 @@
 #include "Character/SWCharacter_Player.h"
 #include "Interaction/SWDeathTypes.h"
 #include "Engine/World.h"
+#include "Economy/SWEconomyData.h"
+#include "Shop/SWShopCatalogData.h"
 #include "EngineUtils.h"
 #include "GameState/SWGameState.h"
 #include "GameFramework/PlayerStart.h"
@@ -60,7 +62,15 @@ void ASWGameMode::BeginPlay()
 	if (ASWGameState* SWGameState = GetGameState<ASWGameState>())
 	{
 		SWGameState->SetProgressionDataAuthority(ProgressionData);
+		SWGameState->SetEconomyDataAuthority(EconomyData);
+		SWGameState->SetShopCatalogDataAuthority(ShopCatalogData);
 	}
+}
+
+void ASWGameMode::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	GetWorldTimerManager().ClearTimer(PassiveGoldIncomeTimer);
+	Super::EndPlay(EndPlayReason);
 }
 
 void ASWGameMode::ReportTeamKill(const ESWTeamId TeamId)
@@ -186,6 +196,11 @@ void ASWGameMode::PostLogin(APlayerController* NewPlayer)
 {
 	Super::PostLogin(NewPlayer);
 
+	if (ASWPlayerState* const PlayerState = NewPlayer ? NewPlayer->GetPlayerState<ASWPlayerState>() : nullptr)
+	{
+		PlayerState->InitializeEconomyAuthority();
+	}
+
 	// InitNewPlayer 已完成选队验证；首名有效玩家据此启动准备期。
 	StartWarmupIfNeeded();
 }
@@ -254,6 +269,9 @@ void ASWGameMode::HandlePlayerDeathAuthority(const FSWDeathContext& DeathContext
 	{
 		return;
 	}
+
+	// 死亡后立即取消交易资格；重生时须重新进入商店区域才可交易。
+	PlayerState->ClearShopTradeAccessAuthority();
 
 	const ESWTeamId TeamId = PlayerState->GetTeamId();
 	if (TeamId != ESWTeamId::TeamA && TeamId != ESWTeamId::TeamB)
@@ -338,6 +356,56 @@ void ASWGameMode::HandleMatchHasStarted()
 	}
 
 	Super::HandleMatchHasStarted();
+	StartPassiveGoldIncomeAuthority();
+}
+
+void ASWGameMode::HandleMatchHasEnded()
+{
+	GetWorldTimerManager().ClearTimer(PassiveGoldIncomeTimer);
+	Super::HandleMatchHasEnded();
+}
+
+void ASWGameMode::StartPassiveGoldIncomeAuthority()
+{
+	if (!HasAuthority() || !EconomyData)
+	{
+		return;
+	}
+
+	GetWorldTimerManager().ClearTimer(PassiveGoldIncomeTimer);
+	GetWorldTimerManager().SetTimer(
+		PassiveGoldIncomeTimer,
+		this,
+		&ThisClass::GrantPassiveGoldIncomeAuthority,
+		1.0f,
+		true);
+}
+
+void ASWGameMode::GrantPassiveGoldIncomeAuthority()
+{
+	if (!HasAuthority() || GetMatchState() != MatchState::InProgress || !EconomyData)
+	{
+		return;
+	}
+
+	ASWGameState* const SWGameState = GetGameState<ASWGameState>();
+	if (!SWGameState)
+	{
+		return;
+	}
+
+	for (APlayerState* const PlayerState : SWGameState->PlayerArray)
+	{
+		ASWPlayerState* const SWPlayerState = Cast<ASWPlayerState>(PlayerState);
+		if (!SWPlayerState || SWPlayerState->IsInactive()
+			|| (SWPlayerState->GetTeamId() != ESWTeamId::TeamA && SWPlayerState->GetTeamId() != ESWTeamId::TeamB))
+		{
+			continue;
+		}
+
+		// 不检查 Pawn 或死亡状态：金币属于 PlayerState，死亡期间仍按当前等级增长。
+		SWPlayerState->GrantPassiveGoldIncomeAuthority(EconomyData->GetPassiveGoldPerSecondAtLevel(SWPlayerState->GetPlayerLevel()));
+	}
 }
 
 AActor* ASWGameMode::ChoosePlayerStart_Implementation(AController* Player)

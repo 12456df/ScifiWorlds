@@ -2,6 +2,8 @@
 
 #include "GameState/SWGameState.h"
 
+#include "Economy/SWEconomyData.h"
+#include "Shop/SWShopCatalogData.h"
 #include "Engine/NetDriver.h"
 #include "Engine/World.h"
 #include "Misc/App.h"
@@ -103,6 +105,8 @@ void ASWGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	DOREPLIFETIME(ASWGameState, TeamAStats);
 	DOREPLIFETIME(ASWGameState, TeamBStats);
 	DOREPLIFETIME(ASWGameState, ProgressionData);
+	DOREPLIFETIME(ASWGameState, EconomyData);
+	DOREPLIFETIME(ASWGameState, ShopCatalogData);
 	DOREPLIFETIME(ASWGameState, ServerNetworkSnapshot);
 }
 
@@ -176,6 +180,18 @@ void ASWGameState::SetProgressionDataAuthority(USWProgressionData* NewProgressio
 {
 	check(HasAuthority());
 	ProgressionData = NewProgressionData;
+}
+
+void ASWGameState::SetEconomyDataAuthority(USWEconomyData* NewEconomyData)
+{
+	check(HasAuthority());
+	EconomyData = NewEconomyData;
+}
+
+void ASWGameState::SetShopCatalogDataAuthority(USWShopCatalogData* NewShopCatalogData)
+{
+	check(HasAuthority());
+	ShopCatalogData = NewShopCatalogData;
 }
 
 FSWTeamMatchStats* ASWGameState::GetMutableTeamMatchStats(const ESWTeamId TeamId)

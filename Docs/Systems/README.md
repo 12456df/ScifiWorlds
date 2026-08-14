@@ -22,4 +22,6 @@
 | M04 输入、移动、相机与固定武器基础 | [M04_InputMovementCameraWeapon.md](M04_InputMovementCameraWeapon.md) | `12456df` | Approved |
 | M05 战斗生命循环 | [M05_CombatLifecycle.md](M05_CombatLifecycle.md) | `12456df` | Completed |
 | M06 射击命中结算与扩展 | [M06_AuthoritativeShootingResolution.md](M06_AuthoritativeShootingResolution.md) | `12456df` | Completed |
-| M07 主动技能框架 | [M07_GameplayAbilityPipeline.md](M07_GameplayAbilityPipeline.md) | `12456df` | Draft |
+| M07 主动技能框架 | [M07_GameplayAbilityPipeline.md](M07_GameplayAbilityPipeline.md) | `12456df` | Completed |
+| M08 装备与属性修正 | [M08_EquipmentAttributeModifiers.md](M08_EquipmentAttributeModifiers.md) | `feature/m08-m09-equipment-economy-shop` | Completed |
+| M09 经济、六槽装备栏与商店 | [M09_EconomyInventoryShop.md](M09_EconomyInventoryShop.md) | `feature/m08-m09-equipment-economy-shop` | Completed |

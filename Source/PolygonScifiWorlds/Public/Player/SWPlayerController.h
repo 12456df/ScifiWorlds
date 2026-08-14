@@ -3,9 +3,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Engine/AssetManagerTypes.h"
 #include "GameplayTagContainer.h"
 #include "GameFramework/PlayerController.h"
 #include "UI/DamageNumber/SWDamageNumberTypes.h"
+#include "Shop/SWShopTypes.h"
 #include "SWPlayerController.generated.h"
 
 class USWInputConfig;
@@ -44,9 +46,21 @@ public:
 	/** 仅由所属客户端输入调用：请求服务器升级指定的固定主动技能槽位。 */
 	void RequestActiveAbilityUpgrade(FGameplayTag InputTag);
 
+	/** 所属客户端的商店购买意图；只上传稳定物品 Id，不上传价格、属性或槽位。 */
+	UFUNCTION(BlueprintCallable, Category = "Shop")
+	void RequestPurchaseItem(const FPrimaryAssetId& ItemDefinitionId);
+
+	/** 所属客户端的商店出售意图；只上传已经拥有的固定装备槽索引。 */
+	UFUNCTION(BlueprintCallable, Category = "Shop")
+	void RequestSellEquipmentSlot(int32 SlotIndex);
+
 	/** 仅本地客户端表现入口；由蓝图创建并驱动 WBP_DamageNumber。 */
 	UFUNCTION(BlueprintImplementableEvent, Category = "UI|Damage Number", meta = (DisplayName = "显示伤害数字"))
 	void BP_ShowDamageNumber(const FSWDamageNumberPayload& Payload);
+
+	/** 服务器拒绝交易时仅向所属客户端发送表现原因；金币和装备栏仍以复制状态为准。 */
+	UFUNCTION(BlueprintImplementableEvent, Category = "UI|Shop", meta = (DisplayName = "商店交易失败"))
+	void BP_OnShopTransactionFailed(ESWShopTransactionFailure Failure);
 
 protected:
 	/** 所属客户端的升级意图 RPC；服务器只接受既有 Skill1/Skill2/Skill3 输入 Tag。 */
@@ -55,6 +69,18 @@ protected:
 
 	/** 服务器侧执行升级事务的共享入口，供本地服务器和 RPC 实现复用。 */
 	void ProcessActiveAbilityUpgradeRequestAuthority(FGameplayTag InputTag);
+
+	UFUNCTION(Server, Reliable)
+	void ServerRequestPurchaseItem(FPrimaryAssetId ItemDefinitionId);
+
+	UFUNCTION(Server, Reliable)
+	void ServerRequestSellEquipmentSlot(int32 SlotIndex);
+
+	UFUNCTION(Client, Reliable)
+	void ClientShopTransactionFailed(ESWShopTransactionFailure Failure);
+
+	void ProcessPurchaseRequestAuthority(const FPrimaryAssetId& ItemDefinitionId);
+	void ProcessSellRequestAuthority(int32 SlotIndex);
 
 	/** 由 PlayerController 蓝图默认值指定的唯一输入数据资产。 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))

@@ -32,6 +32,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combatant|Rewards")
 	FScalableFloat XPRewardByLevel;
 
+	/** 按死亡时战斗等级求值的击杀金币；仅授予合法敌方击杀者的 PlayerState。 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combatant|Rewards")
+	FScalableFloat GoldRewardByLevel;
+
 	/** 玩家重生后应用的短暂无敌 GE；非玩家单位可为空。 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combatant|Respawn")
 	TSubclassOf<UGameplayEffect> RespawnInvulnerabilityEffect;

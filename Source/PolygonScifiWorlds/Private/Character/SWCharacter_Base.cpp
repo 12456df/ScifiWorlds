@@ -76,14 +76,14 @@ bool ASWCharacter_Base::TryCommitDeathAuthority(const FSWDeathContext& DeathCont
 		MovementComponent->DisableMovement();
 	}
 
-	GrantExperienceForDeathAuthority(DeathContext);
+	GrantDeathRewardsAuthority(DeathContext);
 	OnDeath.Broadcast(DeathContext);
 	ApplyDeathStatePresentation();
 	ForceNetUpdate();
 	return true;
 }
 
-void ASWCharacter_Base::GrantExperienceForDeathAuthority(const FSWDeathContext& DeathContext)
+void ASWCharacter_Base::GrantDeathRewardsAuthority(const FSWDeathContext& DeathContext)
 {
 	if (!HasAuthority() || !CombatantDefinition || !DeathContext.InstigatorActor)
 	{
@@ -104,15 +104,31 @@ void ASWCharacter_Base::GrantExperienceForDeathAuthority(const FSWDeathContext& 
 
 	const int32 CombatLevel = ISWCombatInterface::Execute_GetCombatLevel(this);
 	const float ExperienceRewardFloat = CombatantDefinition->XPRewardByLevel.GetValueAtLevel(FMath::Max(1, CombatLevel));
-	if (!FMath::IsFinite(ExperienceRewardFloat) || ExperienceRewardFloat <= 0.f)
+	if (FMath::IsFinite(ExperienceRewardFloat) && ExperienceRewardFloat > 0.f)
+	{
+		const int32 ExperienceReward = ExperienceRewardFloat >= static_cast<float>(MAX_int32)
+			? MAX_int32
+			: FMath::FloorToInt(ExperienceRewardFloat);
+		KillerAbilitySystemComponent->ApplyExperienceRewardToSelfAuthority(ExperienceReward, this);
+	}
+
+	// 金币不属于 GAS Attribute；它由击杀者 PlayerState 持有并通过唯一金币写入入口复制给所属客户端。
+	const float GoldRewardFloat = CombatantDefinition->GoldRewardByLevel.GetValueAtLevel(FMath::Max(1, CombatLevel));
+	if (!FMath::IsFinite(GoldRewardFloat) || GoldRewardFloat <= 0.f)
 	{
 		return;
 	}
 
-	const int32 ExperienceReward = ExperienceRewardFloat >= static_cast<float>(MAX_int32)
+	ASWPlayerState* const KillerPlayerState = Cast<ASWPlayerState>(KillerAbilitySystemComponent->GetOwnerActor());
+	if (!KillerPlayerState)
+	{
+		return;
+	}
+
+	const int32 GoldReward = GoldRewardFloat >= static_cast<float>(MAX_int32)
 		? MAX_int32
-		: FMath::FloorToInt(ExperienceRewardFloat);
-	KillerAbilitySystemComponent->ApplyExperienceRewardToSelfAuthority(ExperienceReward, this);
+		: FMath::FloorToInt(GoldRewardFloat);
+	KillerPlayerState->GrantGoldAuthority(GoldReward);
 }
 
 void ASWCharacter_Base::InitAbilityActorInfo()
@@ -199,4 +215,17 @@ void ASWCharacter_Base::ApplyCombatantInitializationEffectsAuthority(const int32
 	{
 		ApplyEffect(CombatantDefinition->VitalAttributesEffect, TEXT("满资源 GE"));
 	}
+}
+
+void ASWCharacter_Base::RestoreVitalResourcesToMaximumAuthority()
+{
+	if (!HasAuthority() || !AttributeSet)
+	{
+		return;
+	}
+
+	// 当前值不由装备 GE 直接修改；重生应以装备、等级等聚合后的最终最大值为准恢复资源。
+	AttributeSet->SetHealth(AttributeSet->GetMaxHealth());
+	AttributeSet->SetMana(AttributeSet->GetMaxMana());
+	AttributeSet->SetStamina(AttributeSet->GetMaxStamina());
 }

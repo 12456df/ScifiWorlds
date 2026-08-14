@@ -21,6 +21,7 @@ void USWProgressionOverlayWidgetController::BindCallbacksToDependencies()
 
 	LevelChangedHandle = PlayerState->OnLevelChanged.AddUObject(this, &ThisClass::HandleLevelChanged);
 	ExperienceChangedHandle = PlayerState->OnExperienceChanged.AddUObject(this, &ThisClass::HandleExperienceChanged);
+	GoldChangedHandle = PlayerState->OnGoldChanged.AddUObject(this, &ThisClass::HandleGoldChanged);
 	bCallbacksBound = true;
 }
 
@@ -40,6 +41,7 @@ void USWProgressionOverlayWidgetController::BroadcastProgression()
 	FSWOverlayProgressionSnapshot Snapshot;
 	Snapshot.Level = PlayerState->GetPlayerLevel();
 	Snapshot.TotalExperience = PlayerState->GetExperience();
+	Snapshot.Gold = PlayerState->GetGold();
 
 	const USWProgressionData* ProgressionData = GameState ? GameState->GetProgressionData() : nullptr;
 	if (!ProgressionData || !ProgressionData->HasValidLevelEntries())
@@ -75,10 +77,12 @@ void USWProgressionOverlayWidgetController::UnbindCallbacks()
 	{
 		PlayerState->OnLevelChanged.Remove(LevelChangedHandle);
 		PlayerState->OnExperienceChanged.Remove(ExperienceChangedHandle);
+		PlayerState->OnGoldChanged.Remove(GoldChangedHandle);
 	}
 
 	LevelChangedHandle.Reset();
 	ExperienceChangedHandle.Reset();
+	GoldChangedHandle.Reset();
 	bCallbacksBound = false;
 }
 
@@ -91,5 +95,11 @@ void USWProgressionOverlayWidgetController::HandleLevelChanged(const int32 NewLe
 void USWProgressionOverlayWidgetController::HandleExperienceChanged(const int32 NewExperience)
 {
 	(void)NewExperience;
+	BroadcastProgression();
+}
+
+void USWProgressionOverlayWidgetController::HandleGoldChanged(const int32 NewGold)
+{
+	(void)NewGold;
 	BroadcastProgression();
 }

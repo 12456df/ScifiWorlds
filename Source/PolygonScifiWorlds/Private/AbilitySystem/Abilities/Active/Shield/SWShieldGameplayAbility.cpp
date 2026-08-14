@@ -14,8 +14,8 @@ USWShieldGameplayAbility::USWShieldGameplayAbility()
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::LocalPredicted;
 	AbilityIdTag = SWGameplayTags::Ability_Skill_Shield;
 	CooldownTag = SWGameplayTags::Cooldown_Ability_Shield;
-	// Shield 的充能是技能自身数据，不接受通用充能属性的额外修改。
-	bUseAbilityChargeBonus = false;
+	// Shield 是充能技能；允许装备通过 AbilityChargeBonus 增加其最大充能。
+	bUseAbilityChargeBonus = true;
 }
 
 float USWShieldGameplayAbility::GetForwardSpawnDistance(const int32 AbilityLevel) const
