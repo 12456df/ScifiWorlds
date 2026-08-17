@@ -119,6 +119,10 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Shop")
 	TObjectPtr<class USWShopCatalogData> ShopCatalogData;
 
+	/** 本局三路兵线的静态波次配方；仅服务器的 LaneWaveSubsystem 消费，不复制给客户端。 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minion Waves")
+	TObjectPtr<class USWMinionWaveData> MinionWaveData;
+
 	/** 仅服务器维护；每名玩家至多保留一个重生计时器，不复制给客户端。 */
 	TMap<TWeakObjectPtr<class APlayerController>, FTimerHandle> PlayerRespawnTimers;
 

@@ -14,6 +14,8 @@
 #include "GameState/SWGameState.h"
 #include "GameFramework/PlayerStart.h"
 #include "Kismet/GameplayStatics.h"
+#include "Mass/Minions/SWMinionLaneWaveSubsystem.h"
+#include "Mass/Minions/SWMinionWaveData.h"
 #include "Player/SWPlayerController.h"
 #include "Player/SWPlayerState.h"
 #include "TimerManager.h"
@@ -70,6 +72,10 @@ void ASWGameMode::BeginPlay()
 void ASWGameMode::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	GetWorldTimerManager().ClearTimer(PassiveGoldIncomeTimer);
+	if (USWMinionLaneWaveSubsystem* const LaneWaveSubsystem = GetWorld()->GetSubsystem<USWMinionLaneWaveSubsystem>())
+	{
+		LaneWaveSubsystem->StopWavesAuthority();
+	}
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -357,11 +363,20 @@ void ASWGameMode::HandleMatchHasStarted()
 
 	Super::HandleMatchHasStarted();
 	StartPassiveGoldIncomeAuthority();
+
+	if (USWMinionLaneWaveSubsystem* const LaneWaveSubsystem = GetWorld()->GetSubsystem<USWMinionLaneWaveSubsystem>())
+	{
+		LaneWaveSubsystem->StartWavesAuthority(MinionWaveData);
+	}
 }
 
 void ASWGameMode::HandleMatchHasEnded()
 {
 	GetWorldTimerManager().ClearTimer(PassiveGoldIncomeTimer);
+	if (USWMinionLaneWaveSubsystem* const LaneWaveSubsystem = GetWorld()->GetSubsystem<USWMinionLaneWaveSubsystem>())
+	{
+		LaneWaveSubsystem->StopWavesAuthority();
+	}
 	Super::HandleMatchHasEnded();
 }
 
