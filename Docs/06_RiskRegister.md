@@ -1,7 +1,7 @@
 # 风险登记册
 
 **状态：** Draft
-**最后更新：** 2026-07-20
+**最后更新：** 2026-08-15
 
 ## 评估标准
 
@@ -17,6 +17,7 @@
 | RR-002 | 目标平台、对局人数、角色数量、单局时长和 Demo 内容规模尚未确定，可能造成范围返工 | High | High | 在原型开发前批准项目章程中的剩余产品范围 | 项目负责人 | Open |
 | RR-003 | 二进制 UE 资产无法常规合并，可能出现协作冲突 | Medium | High | 使用 Git LFS、资产负责人和锁定流程 | TBD | Open |
 | RR-004 | 项目以现有商业游戏为主要研究参照，若缺乏原创差异可能产生产品定位与知识产权风险 | Medium | High | 只研究机制与体验目标；建立原创角色、地图、美术、文本和系统表达；在游戏愿景中明确差异化支柱 | 项目负责人 | Open |
+| RR-005 | UE 5.7 MassGameplay/MassAI 仍存在实验性 API、Actor/GAS 生命周期桥和 Dedicated Server 复制风险 | Medium | High | 先做 20 Entity 三 Target/DS Spike；采用服务器 Mass + Actor/GAS 单一战斗真值；隔离 Mass 代码；首版不叠加 MassReplication/LOD/Pooling；以 ADR-0003 的复审条件控制扩大范围 | 独立开发者 | Mitigating |
 
 ## 风险处理记录
 

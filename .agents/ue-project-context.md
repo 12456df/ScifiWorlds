@@ -1,6 +1,6 @@
 # UE Project Context
 
-*Last updated: 2026-07-30*
+*Last updated: 2026-08-21*
 
 ## Engine & Project Overview
 
@@ -11,7 +11,7 @@
 **Project type:** Game
 **Genre / domain:** Third-person hero/ability shooter + lane-pushing objective game
 **Target platforms:** TBD
-**Default editor/game map:** `/Game/PolygonSciFiWorlds/Maps/Demo_BlackMarket`
+**Default editor/game map:** `/Game/PolygonSciFiWorlds/Maps/GameMap`
 
 ## Module Structure
 
@@ -23,8 +23,8 @@
 
 **Key dependencies:**
 
-- **Public:** Core、CoreUObject、Engine、InputCore、GameplayAbilities、GameplayTags、GameplayTasks
-- **Private:** EnhancedInput
+- **Public:** Core、CoreUObject、Engine、InputCore、GameplayAbilities、GameplayTags、GameplayTasks、UMG、DeveloperSettings、MassEntity、MassSpawner
+- **Private:** EnhancedInput、MassCommon、MassActors
 - **Build settings:** BuildSettingsVersion.V6
 - **Targets:** `PolygonScifiWorlds`（Game）、`PolygonScifiWorldsEditor`（Editor）、`PolygonScifiWorldsServer`（Dedicated Server）
 
@@ -36,6 +36,9 @@
 - `BpGeneratorUltimate` — Fab 已购插件，已安装到本机源码引擎；仅含 Editor 模块，不进入 Game/Server Runtime，原始内容不纳入项目 Git 仓库
 - `GameplayAbilities` — GAS Runtime 插件，已显式启用
 - `EnhancedInput` — Enhanced Input Runtime 插件，已显式启用
+- `MassGameplay` — M10 使用的 Mass Runtime/Spawner/Actor 桥依赖；小兵 Entity 仅在服务器或 Standalone 执行
+- `MassAI` — M11 小兵 StateTree/Mass 行为依赖；仅在服务器或 Standalone 执行
+- `StateTree` — M11 小兵行为状态与任务定义的 Runtime 依赖
 
 **Selected but not yet configured:** None.
 
@@ -82,6 +85,18 @@
 - Defensive objectives and team crystals
 
 ## Build Configuration
+
+### M11 Validation (2026-08-21)
+
+- 用户已确认 Staged Dedicated Server + 两客户端完成 M11 验收：小兵在服务器权威 Mass/StateTree 下完成推进、索敌、攻击、死亡与回收；客户端正确接收移动、攻击、死亡表现，晚加入可恢复当前可见状态。
+- 本次验证同时覆盖脱战后的重新索敌、敌我小兵交会的轻量分离与绕行，以及由复制速度驱动的稳定 Idle/Locomotion 动画。
+- M11 实现已提交为 `d95e74f`；路线图与完成闸门已同步，下一模块为 M12。
+
+### M10 Validation (2026-08-17)
+
+- MassEntity/MassSpawner/MassActors 已接入 Runtime 模块，MassGameplay 已启用；20 Entity 冒烟以及三路、两队周期波次均已验证。
+- 每个首版小兵采用服务器 Mass Entity 与可复制 `ASWCharacter_Minion`/ASC 的桥接；客户端不运行生成或 AI 决策。
+- Development Editor、Game、Dedicated Server Target 和 Staged DS + 两客户端的多波生成、Team/Level/ASC 关联与晚加入状态已完成验证。
 
 ### M04 Validation (2026-07-30)
 

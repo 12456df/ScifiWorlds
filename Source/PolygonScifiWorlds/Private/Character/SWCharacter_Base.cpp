@@ -11,6 +11,7 @@
 #include "GameplayTagContainer.h"
 #include "GameplayTags/SWGameplayTags.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Mass/Minions/SWMinionTargetRegistrySubsystem.h"
 #include "Net/UnrealNetwork.h"
 #include "Player/SWPlayerState.h"
 
@@ -23,6 +24,28 @@ ASWCharacter_Base::ASWCharacter_Base(const FObjectInitializer& ObjectInitializer
 void ASWCharacter_Base::BeginPlay()
 {
 	Super::BeginPlay();
+
+	// 目标索引只存在于服务器 World；注册并不转移 Team/Health/Death 的所有权。
+	if (HasAuthority())
+	{
+		if (USWMinionTargetRegistrySubsystem* const TargetRegistry = GetWorld()->GetSubsystem<USWMinionTargetRegistrySubsystem>())
+		{
+			TargetRegistry->RegisterTarget(*this);
+		}
+	}
+}
+
+void ASWCharacter_Base::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (HasAuthority())
+	{
+		if (USWMinionTargetRegistrySubsystem* const TargetRegistry = GetWorld() ? GetWorld()->GetSubsystem<USWMinionTargetRegistrySubsystem>() : nullptr)
+		{
+			TargetRegistry->UnregisterTarget(*this);
+		}
+	}
+
+	Super::EndPlay(EndPlayReason);
 }
 
 UAbilitySystemComponent* ASWCharacter_Base::GetAbilitySystemComponent() const

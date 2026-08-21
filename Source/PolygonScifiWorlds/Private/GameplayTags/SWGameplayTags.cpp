@@ -70,6 +70,8 @@ namespace SWGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Behavior_SurviveDeath, "Ability.Behavior.SurviveDeath", "死亡时不应被取消的能力。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Combat_DamageResolved, "Event.Combat.DamageResolved", "一次伤害结算完成事件。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Combat_Death, "Event.Combat.Death", "服务器确认死亡事件。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Combat_MinionAttack, "Event.Combat.MinionAttack", "服务器小兵攻击目标事件。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Combat_MinionAttackHit, "Event.Combat.MinionAttack.Hit", "小兵攻击 Montage 的服务器命中时点事件。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Combat_Hit, "GameplayCue.Combat.Hit", "受击纯表现 Cue。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Combat_Death, "GameplayCue.Combat.Death", "死亡纯表现 Cue。");
 }

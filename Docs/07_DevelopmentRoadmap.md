@@ -1,8 +1,8 @@
 # ScifiWorlds 模块开发路线图
 
 **状态：** Approved（Baseline v1）
-**最后更新：** 2026-08-15
-**当前模块：** M10 — 路线与兵线生成（待开始）
+**最后更新：** 2026-08-21
+**当前模块：** M12 — 防御塔与水晶（Not Started）
 
 ## 目的
 
@@ -26,8 +26,8 @@
 | M07 | 主动技能框架 | M03、M04、M05 | 扩展 M04 的 Input Tag → GAS Ability 通道；完成三个可扩展技能槽，其中配置两个首发样例技能；完成独立技能等级表、AbilityPoints 升级、AttributeSet 修正、目标、消耗、冷却/充能、取消、预测、Gameplay Cue 与最小冷却 UI；至少一个样例主动技能通过网络测试。Skill3 留作后续内容扩展，不是 M07 完成前置 | Completed | `feat: add gameplay ability pipeline` |
 | M08 | 装备与技能修正 | M03、M07 | 数据驱动装备定义和 Infinite GE 修正完成；按槽应用/移除、叠加、重生保留和失败回滚正确；武器与技能通过 AttributeSet 聚合值受到修正 | Completed | `feat: complete M08 equipment modifiers and M09 economy shop` |
 | M09 | 经济、背包与商店 | M02、M08 | PlayerState 金币、等级击杀赏金、被动收入、六槽装备栏、商店区域、Tab 浏览、购买/出售原子事务、OwnerOnly 复制和重生保留完成 | Completed | `feat: complete M08 equipment modifiers and M09 economy shop` |
-| M10 | 路线与兵线生成 | M02 | 三条路线、出生点、波次和双方周期生成均由数据驱动，并由服务器控制 | Not Started | `feat: add lane and wave system` |
-| M11 | 小兵 AI 与战斗 | M05、M10 | 小兵沿线移动、选择目标、攻击和死亡完整运行；AI 由服务器执行，客户端只接收必要状态 | Not Started | `feat: add networked minion AI` |
+| M10 | 路线与兵线生成 | M02 | 三条路线、出生点、波次和双方周期生成均由数据驱动，并由服务器控制 | Completed | `feat: add lane and wave system` |
+| M11 | 小兵 AI 与战斗 | M05、M10 | 小兵沿线移动、选择目标、攻击和死亡完整运行；AI 由服务器执行，客户端只接收必要状态 | Completed | `feat: add networked minion AI` |
 | M12 | 防御塔与水晶 | M05、M10、M11 | 队伍归属、攻击、受击、路线推进约束和水晶状态完成并由服务器权威同步 | Not Started | `feat: add towers and team crystals` |
 | M13 | 完整比赛流程 | M02、M12 | 准备、开始、进行、结束和重置状态完整；摧毁敌方水晶后服务器唯一判定并同步结果 | Not Started | `feat: complete authoritative match flow` |
 | M14 | HUD 与游戏 UI | M05、M08、M09、M13 | 在 M05 Combat Overlay 基础上完成技能、冷却、装备、商店、目标、比赛状态、计分板和结算界面，并统一完整 HUD 视觉与导航 | Not Started | `feat: add gameplay HUD and shop UI` |
@@ -82,6 +82,8 @@ M00 的目标是建立足以安全开始开发的功能方向与技术规范，�
 | M07 | `feat: add gameplay ability pipeline` | 2026-08-10 | 三固定可扩展技能槽、两个首发样例技能、独立等级、AbilityPoints 升级、资源消耗、目标验证、冷却/充能、确认式施法、技能栏与升级加号完成。Development Editor/Game/Server Target 构建成功；Staged DS 加双客户端完成技能施放、效果、消耗、冷却/充能、升级及死亡重生后的状态验证。Skill3 按收缩范围保留为空槽。 |
 | M08 | `feat: complete M08 equipment modifiers and M09 economy shop` | 2026-08-15 | 数据驱动装备定义、Infinite GE 槽位应用/移除、装备重生保留与最大资源按比例换算完成；首批八件装备覆盖主要 AttributeSet 修正并通过验证。Development Editor/Game/Server Target 构建成功；Staged DS 加双客户端完成装备属性、重生保留和 UI 验证。 |
 | M09 | `feat: complete M08 equipment modifiers and M09 economy shop` | 2026-08-15 | PlayerState 金币、等级击杀赏金、被动收入、六槽装备栏、交易区域、Tab 商店界面与服务器权威购买/出售原子事务完成。Development Editor/Game/Server Target 构建成功；Staged DS 加双客户端完成金币、交易、装备生效/出售、死亡重生与 UI 验证。 |
+| M10 | `feat: add lane and wave system` | 2026-08-17 | Mass 20 Entity 冒烟、三条路线、双方三路周期波次、Entity/Actor/ASC Ready Bridge 与原子回滚完成。Development Editor/Game/Server Target 构建成功；Staged DS 加双客户端完成多波生成、Team/Level/ASC 关联和晚加入状态验证。 |
+| M11 | `d95e74f` | 2026-08-21 | 服务器权威 Mass/StateTree 小兵完成沿线推进、索敌、攻击、死亡与回收；脱战重新索敌、同队轻量分离、交会绕行与攻击转向完成。用户已在 Staged DS 加双客户端验证移动、战斗、死亡、晚加入与比赛结束表现。 |
 
 ## 路线图变更规则
 
