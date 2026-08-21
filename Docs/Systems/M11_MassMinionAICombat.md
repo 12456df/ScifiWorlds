@@ -330,15 +330,15 @@ Death Bridge 不再次计算奖励，也不调用玩家 Respawn。小兵后续�
 
 ### M11 完成闸门
 
-- [ ] M10 已完成并提交
-- [ ] M11 文档状态为 `Approved`
-- [ ] 三路双方小兵完成推进 → 索敌 → 攻击 → 死亡 → 回收闭环
-- [ ] M05 XP、M09 Gold 按小兵等级正确奖励且恰好一次
-- [ ] 无 AIController/BehaviorTree/per-Actor Tick/per-Entity Timer/双重 Health 或 Damage 真值
-- [ ] 长时间多波运行无 Entity/Actor/Delegate/Target 弱引用持续泄漏
-- [ ] Editor、Game、Server Development 构建通过
+- [x] M10 已完成并提交
+- [x] M11 文档状态为 `Approved`
+- [x] 三路双方小兵完成推进 → 索敌 → 攻击 → 死亡 → 回收闭环
+- [x] M05 XP、M09 Gold 按小兵等级正确奖励且恰好一次
+- [x] 无 AIController/BehaviorTree/per-Actor Tick/per-Entity Timer/双重 Health 或 Damage 真值
+- [x] 长时间多波运行无 Entity/Actor/Delegate/Target 弱引用持续泄漏
+- [x] Editor、Game、Server Development 构建通过
 - [x] Staged DS + 两客户端通过移动、战斗、死亡、晚加入与比赛结束验证（2026-08-21）
-- [ ] 项目上下文、路线图、风险与提交记录同步
+- [x] 项目上下文、路线图、风险与提交记录同步（实现提交 `d95e74f`）
 
 ## 14. 后续技术引入条件
 
