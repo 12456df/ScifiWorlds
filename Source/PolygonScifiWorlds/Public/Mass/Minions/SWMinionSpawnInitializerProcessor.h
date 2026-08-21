@@ -22,8 +22,11 @@ struct FSWMinionSpawnEntry
 	ESWLaneId LaneId = ESWLaneId::None;
 	ESWLaneDirection LaneDirection = ESWLaneDirection::None;
 	float DistanceAlongLane = 0.f;
+	float LateralOffset = 0.f;
+	float VerticalOffset = 0.f;
 	int32 WaveIndex = INDEX_NONE;
 	int32 SpawnOrdinal = INDEX_NONE;
+	float AttackRange = 0.f;
 };
 
 /** Factory 一次批量生成所携带的按 Entity 顺序排列的初始化数据。 */

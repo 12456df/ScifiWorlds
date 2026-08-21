@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "AbilitySystem/Abilities/Minions/SWMinionAttackGameplayAbility.h"
 #include "Engine/DataAsset.h"
 #include "SWMinionDefinition.generated.h"
 
@@ -39,4 +40,12 @@ public:
 	/** 小兵自身的战斗等级；不使用 PlayerState 等级。 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minion|Combat", meta = (ClampMin = "1"))
 	int32 CombatLevel = 1;
+
+	/** 小兵攻击 GA 的服务器权威类；必须继承 USWMinionAttackGameplayAbility。 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minion|Combat")
+	TSubclassOf<USWMinionAttackGameplayAbility> AttackAbilityClass;
+
+	/** Actor 攻击桥在激活和伤害提交时重复校验的最大距离。 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minion|Combat", meta = (ClampMin = "0.0"))
+	float AttackRange = 250.f;
 };

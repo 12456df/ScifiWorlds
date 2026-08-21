@@ -21,6 +21,7 @@ void USWMinionSpawnInitializerProcessor::ConfigureQueries(const TSharedRef<FMass
 	EntityQuery.AddRequirement<FSWMinionIdentityFragment>(EMassFragmentAccess::ReadWrite);
 	EntityQuery.AddRequirement<FSWMinionTeamFragment>(EMassFragmentAccess::ReadWrite);
 	EntityQuery.AddRequirement<FSWMinionLaneFragment>(EMassFragmentAccess::ReadWrite);
+	EntityQuery.AddRequirement<FSWMinionCombatFragment>(EMassFragmentAccess::ReadWrite);
 }
 
 void USWMinionSpawnInitializerProcessor::Execute(FMassEntityManager& EntityManager, FMassExecutionContext& Context)
@@ -44,6 +45,7 @@ void USWMinionSpawnInitializerProcessor::Execute(FMassEntityManager& EntityManag
 		TArrayView<FSWMinionIdentityFragment> Identities = ChunkContext.GetMutableFragmentView<FSWMinionIdentityFragment>();
 		TArrayView<FSWMinionTeamFragment> Teams = ChunkContext.GetMutableFragmentView<FSWMinionTeamFragment>();
 		TArrayView<FSWMinionLaneFragment> Lanes = ChunkContext.GetMutableFragmentView<FSWMinionLaneFragment>();
+		TArrayView<FSWMinionCombatFragment> Combats = ChunkContext.GetMutableFragmentView<FSWMinionCombatFragment>();
 
 		for (int32 EntityIndex = 0; EntityIndex < NumEntities; ++EntityIndex)
 		{
@@ -56,6 +58,9 @@ void USWMinionSpawnInitializerProcessor::Execute(FMassEntityManager& EntityManag
 			Lanes[EntityIndex].LaneId = Entry.LaneId;
 			Lanes[EntityIndex].Direction = Entry.LaneDirection;
 			Lanes[EntityIndex].DistanceAlongLane = Entry.DistanceAlongLane;
+			Lanes[EntityIndex].LateralOffset = Entry.LateralOffset;
+			Lanes[EntityIndex].VerticalOffset = Entry.VerticalOffset;
+			Combats[EntityIndex].AttackRange = Entry.AttackRange;
 		}
 	});
 

@@ -17,6 +17,13 @@ void USWMinionEntityTrait::BuildTemplate(FMassEntityTemplateBuildContext& BuildC
 	BuildContext.AddFragment<FSWMinionIdentityFragment>();
 	BuildContext.AddFragment<FSWMinionTeamFragment>();
 	BuildContext.AddFragment<FSWMinionLaneFragment>();
+	BuildContext.AddFragment<FSWMinionSpatialFragment>();
+	// StateTree 与后续 Processor 通过该 Fragment 共享行为输出，不在 Actor 上保存平行状态机。
+	BuildContext.AddFragment<FSWMinionIntentFragment>();
+	BuildContext.AddFragment<FSWMinionTargetFragment>();
+	BuildContext.AddFragment<FSWMinionCombatFragment>();
+	BuildContext.AddFragment<FSWMinionLeashFragment>();
+	BuildContext.AddFragment<FSWMinionTimingFragment>();
 	// M10-5：保存服务器权威 Character Actor，并维护 Actor 到 Entity 的反向查询。
 	BuildContext.AddFragment<FMassActorFragment>();
 

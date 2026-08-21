@@ -9,9 +9,9 @@ public class PolygonScifiWorlds : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 		IWYUSupport = IWYUSupport.Full;
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "GameplayAbilities", "GameplayTags", "GameplayTasks", "UMG", "DeveloperSettings", "MassEntity", "MassSpawner" });
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "GameplayAbilities", "GameplayTags", "GameplayTasks", "UMG", "DeveloperSettings", "MassEntity", "MassSpawner", "MassAIBehavior", "StateTreeModule", "MassCommon" });
 
-		PrivateDependencyModuleNames.AddRange(new string[] { "EnhancedInput", "MassCommon", "MassActors" });
+		PrivateDependencyModuleNames.AddRange(new string[] { "EnhancedInput", "MassActors", "MassSignals", "MassSimulation" });
 
 		// Uncomment if you are using Slate UI
 		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });

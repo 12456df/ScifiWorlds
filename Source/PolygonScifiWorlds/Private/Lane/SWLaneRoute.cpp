@@ -1,11 +1,87 @@
 #include "Lane/SWLaneRoute.h"
 
 #include "Components/SplineComponent.h"
+#include "Engine/World.h"
 #include "Math/RotationMatrix.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(SWLaneRoute)
 
 DEFINE_LOG_CATEGORY_STATIC(LogSWLaneRoute, Log, All);
+
+bool FSWLaneRouteSnapshot::TrySampleTransform(const float DistanceAlongLane, const ESWLaneDirection Direction, FTransform& OutTransform) const
+{
+	if (Length <= 0.f || Direction == ESWLaneDirection::None
+		|| SampleDistances.Num() < 2
+		|| SampleLocations.Num() != SampleDistances.Num()
+		|| SampleDirections.Num() != SampleDistances.Num()
+		|| SampleUps.Num() != SampleDistances.Num())
+	{
+		return false;
+	}
+
+	const float ClampedDistance = FMath::Clamp(DistanceAlongLane, 0.f, Length);
+	const int32 LastIndex = SampleDistances.Num() - 1;
+	int32 UpperIndex = 1;
+	while (UpperIndex < LastIndex && SampleDistances[UpperIndex] < ClampedDistance)
+	{
+		++UpperIndex;
+	}
+
+	const int32 LowerIndex = UpperIndex - 1;
+	const float LowerDistance = SampleDistances[LowerIndex];
+	const float UpperDistance = SampleDistances[UpperIndex];
+	const float Alpha = FMath::IsNearlyEqual(LowerDistance, UpperDistance)
+		? 0.f
+		: (ClampedDistance - LowerDistance) / (UpperDistance - LowerDistance);
+
+	const FVector Location = FMath::Lerp(SampleLocations[LowerIndex], SampleLocations[UpperIndex], Alpha);
+	FVector Forward = FMath::Lerp(SampleDirections[LowerIndex], SampleDirections[UpperIndex], Alpha).GetSafeNormal();
+	const FVector Up = FMath::Lerp(SampleUps[LowerIndex], SampleUps[UpperIndex], Alpha).GetSafeNormal();
+	if (Forward.IsNearlyZero() || Up.IsNearlyZero())
+	{
+		return false;
+	}
+
+	if (Direction == ESWLaneDirection::Reverse)
+	{
+		Forward *= -1.f;
+	}
+
+	OutTransform = FTransform(FRotationMatrix::MakeFromXZ(Forward, Up).ToQuat(), Location, FVector::OneVector);
+	return true;
+}
+
+bool FSWLaneRouteSnapshot::TryProjectDistanceAlongLane(const FVector& WorldLocation, float& OutDistanceAlongLane) const
+{
+	if (Length <= 0.f || SampleDistances.Num() < 2 || SampleLocations.Num() != SampleDistances.Num())
+	{
+		return false;
+	}
+
+	float BestDistanceSquared = TNumericLimits<float>::Max();
+	float BestLaneDistance = 0.f;
+	for (int32 Index = 1; Index < SampleLocations.Num(); ++Index)
+	{
+		const FVector SegmentStart = SampleLocations[Index - 1];
+		const FVector SegmentDelta = SampleLocations[Index] - SegmentStart;
+		const float SegmentLengthSquared = SegmentDelta.SizeSquared2D();
+		const float Alpha = SegmentLengthSquared > KINDA_SMALL_NUMBER
+			? FMath::Clamp(FVector2D::DotProduct(
+				FVector2D(WorldLocation.X - SegmentStart.X, WorldLocation.Y - SegmentStart.Y),
+				FVector2D(SegmentDelta.X, SegmentDelta.Y)) / SegmentLengthSquared, 0.f, 1.f)
+			: 0.f;
+		const FVector ClosestPoint = SegmentStart + SegmentDelta * Alpha;
+		const float DistanceSquared = FVector::DistSquared2D(WorldLocation, ClosestPoint);
+		if (DistanceSquared < BestDistanceSquared)
+		{
+			BestDistanceSquared = DistanceSquared;
+			BestLaneDistance = FMath::Lerp(SampleDistances[Index - 1], SampleDistances[Index], Alpha);
+		}
+	}
+
+	OutDistanceAlongLane = BestLaneDistance;
+	return true;
+}
 
 ASWLaneRoute::ASWLaneRoute()
 {
@@ -93,6 +169,67 @@ bool ASWLaneRoute::BuildRouteSnapshot()
 	RouteSnapshot.Length = SplineLength;
 	RouteSnapshot.TeamASpawnTransform = TeamATransform;
 	RouteSnapshot.TeamBSpawnTransform = TeamBTransform;
+	RouteSnapshot.SampleDistances.Reset();
+	RouteSnapshot.SampleLocations.Reset();
+	RouteSnapshot.SampleDirections.Reset();
+	RouteSnapshot.SampleUps.Reset();
+
+	const float SampleSpacing = FMath::Max(RuntimeSampleSpacing, 10.f);
+	TArray<float> SampleDistanceCandidates;
+	SampleDistanceCandidates.Reserve(LaneSpline->GetNumberOfSplinePoints() + FMath::CeilToInt(SplineLength / SampleSpacing) + 2);
+	SampleDistanceCandidates.Add(0.f);
+	SampleDistanceCandidates.Add(SplineLength);
+
+	// 固定采样用于平滑插值，同时强制保留每个控制点，防止路线在控制点附近因采样间距而失真。
+	for (float Distance = SampleSpacing; Distance < SplineLength; Distance += SampleSpacing)
+	{
+		SampleDistanceCandidates.Add(Distance);
+	}
+	for (int32 PointIndex = 0; PointIndex <= LastPointIndex; ++PointIndex)
+	{
+		SampleDistanceCandidates.Add(LaneSpline->GetDistanceAlongSplineAtSplinePoint(PointIndex));
+	}
+	SampleDistanceCandidates.Sort();
+
+	FCollisionQueryParams GroundTraceParams(SCENE_QUERY_STAT(SWMinionLaneGroundProjection), false, this);
+	GroundTraceParams.bTraceComplex = false;
+	int32 GroundProjectionMissCount = 0;
+	for (const float CandidateDistance : SampleDistanceCandidates)
+	{
+		if (!RouteSnapshot.SampleDistances.IsEmpty() && FMath::IsNearlyEqual(RouteSnapshot.SampleDistances.Last(), CandidateDistance))
+		{
+			continue;
+		}
+
+		FVector SampleLocation = LaneSpline->GetLocationAtDistanceAlongSpline(CandidateDistance, ESplineCoordinateSpace::World);
+		if (bProjectMinionRouteToGround)
+		{
+			FHitResult GroundHit;
+			const FVector TraceStart = SampleLocation + FVector::UpVector * GroundTraceStartHeight;
+			const FVector TraceEnd = SampleLocation - FVector::UpVector * GroundTraceDownDistance;
+			if (GetWorld()->LineTraceSingleByChannel(GroundHit, TraceStart, TraceEnd, GroundTraceChannel, GroundTraceParams))
+			{
+				SampleLocation = GroundHit.ImpactPoint;
+			}
+			else
+			{
+				++GroundProjectionMissCount;
+			}
+		}
+
+		RouteSnapshot.SampleDistances.Add(CandidateDistance);
+		RouteSnapshot.SampleLocations.Add(SampleLocation);
+		RouteSnapshot.SampleDirections.Add(LaneSpline->GetDirectionAtDistanceAlongSpline(CandidateDistance, ESplineCoordinateSpace::World));
+		RouteSnapshot.SampleUps.Add(LaneSpline->GetUpVectorAtDistanceAlongSpline(CandidateDistance, ESplineCoordinateSpace::World));
+	}
+
+	if (GroundProjectionMissCount > 0)
+	{
+		UE_LOG(LogSWLaneRoute, Warning, TEXT("Lane route '%s' has %d ground-projection misses. Verify the ground collision response for channel %d."),
+			*GetName(), GroundProjectionMissCount, static_cast<int32>(GroundTraceChannel.GetValue()));
+	}
+	UE_LOG(LogSWLaneRoute, Display, TEXT("Lane route '%s' snapshot frozen: ControlPoints=%d Samples=%d Length=%.1f."),
+		*GetName(), LastPointIndex + 1, RouteSnapshot.SampleDistances.Num(), RouteSnapshot.Length);
 	bHasValidRouteSnapshot = true;
 	return true;
 }

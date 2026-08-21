@@ -23,6 +23,8 @@ struct FSWMinionSpawnBatchRequest
 	int32 WaveIndex = INDEX_NONE;
 	int32 FirstSpawnOrdinal = 0;
 	TArray<FTransform> SpawnTransforms;
+	/** 与 SpawnTransforms 一一对应的、相对队伍出生 Transform 的局部编队偏移。 */
+	TArray<FVector> FormationOffsets;
 };
 
 /** Factory 成功创建并完成 Actor/ASC Bridge 的 Entity Handle。 */
@@ -49,7 +51,7 @@ public:
 
 	/**
 	 * 仅服务器/Standalone：销毁一批已桥接的 Entity 与其对应 Actor。
-	 * 用于波次创建失败回滚；死亡路径将在 M11 通过独立桥接处理。
+	 * 用于波次创建失败回滚；正常死亡由 M11-5 的死亡桥与 Cleanup Processor 处理。
 	 */
 	void DestroyBatchAuthority(TConstArrayView<FMassEntityHandle> EntityHandles);
 

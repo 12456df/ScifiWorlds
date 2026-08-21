@@ -21,6 +21,17 @@ struct FSWLaneRouteSnapshot
 	float Length = 0.f;
 	FTransform TeamASpawnTransform = FTransform::Identity;
 	FTransform TeamBSpawnTransform = FTransform::Identity;
+
+	/** 运行时只读采样点；Mass Processor 不直接读取关卡 Spline UObject。 */
+	TArray<float> SampleDistances;
+	TArray<FVector> SampleLocations;
+	TArray<FVector> SampleDirections;
+	TArray<FVector> SampleUps;
+
+	/** 按路线距离取得推进 Transform；Reverse 自动使用反向朝向。 */
+	bool TrySampleTransform(float DistanceAlongLane, ESWLaneDirection Direction, FTransform& OutTransform) const;
+	/** 将世界位置投影到冻结路线的最近二维线段；只供脱战归线的边沿使用，不访问 Spline UObject。 */
+	bool TryProjectDistanceAlongLane(const FVector& WorldLocation, float& OutDistanceAlongLane) const;
 };
 
 /**
@@ -50,6 +61,26 @@ public:
 	/** 两端出生锚点的最小直线间距，避免闭环或端点重叠路线。 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Lane|Validation", meta = (ClampMin = "1.0", UIMin = "1.0"))
 	float MinimumEndpointSeparation = 100.f;
+
+	/** 将编辑器 Spline 冻结为运行时快照时的采样间距；越小越贴合曲线，数据量也越大。 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Lane|Runtime", meta = (ClampMin = "10.0", UIMin = "10.0"))
+	float RuntimeSampleSpacing = 100.f;
+
+	/** 冻结路线时向下投射采样点，使 Mass 小兵使用关卡真实地面高度；不在每帧移动时做 Trace。 */
+	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Lane|Grounding")
+	bool bProjectMinionRouteToGround = true;
+
+	/** 地面投射起点相对路线采样点的高度。 */
+	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Lane|Grounding", meta = (ClampMin = "0.0", UIMin = "0.0", EditCondition = "bProjectMinionRouteToGround"))
+	float GroundTraceStartHeight = 1000.f;
+
+	/** 地面投射终点相对路线采样点的向下距离。 */
+	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Lane|Grounding", meta = (ClampMin = "1.0", UIMin = "1.0", EditCondition = "bProjectMinionRouteToGround"))
+	float GroundTraceDownDistance = 5000.f;
+
+	/** 关卡地面响应的 Trace Channel；默认 Visibility，必要时可在关卡实例上改为专用地面通道。 */
+	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Lane|Grounding", meta = (EditCondition = "bProjectMinionRouteToGround"))
+	TEnumAsByte<ECollisionChannel> GroundTraceChannel = ECC_Visibility;
 
 	/** 仅供编辑器手动检查 Spline；不会写入运行时快照。 */
 	UFUNCTION(CallInEditor, Category = "Lane|Validation")

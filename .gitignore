@@ -20,10 +20,12 @@ compile_commands.json
 *.VC.opendb
 *.xcodeproj
 *.xcworkspace
+*.uproject.DotSettings.user
 
 # Local learning/reference materials
 /Docs/GAS/
 /Docs/MultiPlayerNetWorkLearing/
+/Docs/Docs/
 
 # Operating-system files
 .DS_Store

@@ -55,6 +55,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	/** 完成 ASC 的 Owner/Avatar 绑定。基类为空，由玩家/AI 子类分别实现。可重复调用。 */
 	virtual void InitAbilityActorInfo();

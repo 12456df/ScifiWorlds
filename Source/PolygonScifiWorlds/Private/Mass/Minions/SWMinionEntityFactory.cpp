@@ -3,6 +3,7 @@
 #include "Mass/Minions/SWMinionEntityFactory.h"
 
 #include "Character/SWCharacter_Minion.h"
+#include "Components/CapsuleComponent.h"
 #include "Lane/SWLaneRoute.h"
 #include "Mass/Minions/SWMinionDefinition.h"
 #include "Mass/Minions/SWMinionSpawnInitializerProcessor.h"
@@ -52,7 +53,6 @@ bool USWMinionEntityFactory::SpawnBatchAuthority(const FSWMinionSpawnBatchReques
 	FSWMinionSpawnData SpawnData;
 	SpawnData.Entries.Reserve(Request.SpawnTransforms.Num());
 	const ESWLaneDirection Direction = ASWLaneRoute::GetDirectionForTeam(Request.TeamId);
-	const float InitialDistance = Request.TeamId == ESWTeamId::TeamA ? 0.f : RouteSnapshot.Length;
 	for (int32 Index = 0; Index < Request.SpawnTransforms.Num(); ++Index)
 	{
 		FSWMinionSpawnEntry& Entry = SpawnData.Entries.AddDefaulted_GetRef();
@@ -61,9 +61,15 @@ bool USWMinionEntityFactory::SpawnBatchAuthority(const FSWMinionSpawnBatchReques
 		Entry.TeamId = Request.TeamId;
 		Entry.LaneId = RouteSnapshot.LaneId;
 		Entry.LaneDirection = Direction;
-		Entry.DistanceAlongLane = InitialDistance;
+		// Spawn Transform 已按队伍朝向应用编队局部偏移。将其拆成路线距离和横向/竖向偏移，后续推进不会压扁队形。
+		const FVector& LocalOffset = Request.FormationOffsets[Index];
+		const float StartDistance = Request.TeamId == ESWTeamId::TeamA ? LocalOffset.X : RouteSnapshot.Length - LocalOffset.X;
+		Entry.DistanceAlongLane = FMath::Clamp(StartDistance, 0.f, RouteSnapshot.Length);
+		Entry.LateralOffset = LocalOffset.Y;
+		Entry.VerticalOffset = LocalOffset.Z;
 		Entry.WaveIndex = Request.WaveIndex;
 		Entry.SpawnOrdinal = Request.FirstSpawnOrdinal + Index;
+		Entry.AttackRange = Request.MinionDefinition->AttackRange;
 	}
 
 	TArray<FMassEntityHandle> SpawnedEntities;
@@ -154,18 +160,21 @@ bool USWMinionEntityFactory::ValidateRequest(const FSWMinionSpawnBatchRequest& R
 		return false;
 	}
 
-	if (Request.WaveIndex < 0 || Request.FirstSpawnOrdinal < 0 || Request.SpawnTransforms.IsEmpty())
+	if (Request.WaveIndex < 0 || Request.FirstSpawnOrdinal < 0 || Request.SpawnTransforms.IsEmpty()
+		|| Request.FormationOffsets.Num() != Request.SpawnTransforms.Num())
 	{
-		OutFailure = TEXT("WaveIndex, FirstSpawnOrdinal, and at least one spawn transform are required.");
+		OutFailure = TEXT("WaveIndex, FirstSpawnOrdinal, matching formation offsets, and at least one spawn transform are required.");
 		return false;
 	}
 
 	if (Request.MinionDefinition->UnitId.IsNone()
 		|| !Request.MinionDefinition->EntityConfig
 		|| !Request.MinionDefinition->MinionActorClass
-		|| !Request.MinionDefinition->CombatantDefinition)
+		|| !Request.MinionDefinition->CombatantDefinition
+		|| !Request.MinionDefinition->AttackAbilityClass
+		|| Request.MinionDefinition->AttackRange <= 0.f)
 	{
-		OutFailure = TEXT("MinionDefinition requires UnitId, EntityConfig, MinionActorClass, and CombatantDefinition.");
+		OutFailure = TEXT("MinionDefinition requires UnitId, EntityConfig, MinionActorClass, CombatantDefinition, AttackAbilityClass, and a positive AttackRange.");
 		return false;
 	}
 
@@ -229,6 +238,8 @@ bool USWMinionEntityFactory::CreateActorBridgeAuthority(
 		InitializationData.TeamId = Request.TeamId;
 		InitializationData.CombatLevel = Request.MinionDefinition->CombatLevel;
 		InitializationData.CombatantDefinition = Request.MinionDefinition->CombatantDefinition;
+		InitializationData.AttackAbilityClass = Request.MinionDefinition->AttackAbilityClass;
+		InitializationData.AttackRange = Request.MinionDefinition->AttackRange;
 		if (!MinionActor->InitializeMinionAuthority(InitializationData))
 		{
 			MinionActor->Destroy();
@@ -242,6 +253,21 @@ bool USWMinionEntityFactory::CreateActorBridgeAuthority(
 			MinionActor->Destroy();
 			OutFailure = FString::Printf(TEXT("Minion Actor %d did not initialize its ASC or Mass handle."), Index);
 			return false;
+		}
+
+		if (FSWMinionLaneFragment* const LaneFragment = EntityManager.GetFragmentDataPtr<FSWMinionLaneFragment>(EntityHandle))
+		{
+			LaneFragment->GroundOffset = MinionActor->GetCapsuleComponent()
+				? MinionActor->GetCapsuleComponent()->GetScaledCapsuleHalfHeight()
+				: 0.f;
+		}
+		if (FSWMinionSpatialFragment* const SpatialFragment = EntityManager.GetFragmentDataPtr<FSWMinionSpatialFragment>(EntityHandle))
+		{
+			// Mass 才是位置真值；使用同一个 Capsule 半径建立服务器端的无重叠约束，
+			// 不把 Actor Transform 的 Teleport 改成 Sweep，以免两套移动结果互相争夺。
+			SpatialFragment->CollisionRadius = MinionActor->GetCapsuleComponent()
+				? MinionActor->GetCapsuleComponent()->GetScaledCapsuleRadius()
+				: 0.f;
 		}
 
 		// Mass 拥有此 Actor 的生命周期；该调用同时登记 Actor -> Entity 的反向索引。
