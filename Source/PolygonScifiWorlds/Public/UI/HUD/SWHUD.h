@@ -13,6 +13,7 @@ class USWWeaponOverlayWidgetController;
 class USWProgressionOverlayWidgetController;
 class USWSkillOverlayWidgetController;
 class USWEquipmentOverlayWidgetController;
+class USWMatchOverlayWidgetController;
 class USWShopWidgetController;
 
 /**
@@ -62,6 +63,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "UI|Overlay")
 	USWEquipmentOverlayWidgetController* GetEquipmentOverlayWidgetController();
 
+	/** 返回本地玩家的比赛时间与双方公开战绩 Overlay 数据控制器。 */
+	UFUNCTION(BlueprintCallable, Category = "UI|Overlay")
+	USWMatchOverlayWidgetController* GetMatchOverlayWidgetController();
+
 	/** 返回本地商店界面的只读数据控制器；Widget 的创建、Tab 开关和输入模式仍由后续蓝图负责。 */
 	UFUNCTION(BlueprintCallable, Category = "UI|Shop")
 	USWShopWidgetController* GetShopWidgetController();
@@ -109,6 +114,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Overlay")
 	TSubclassOf<USWEquipmentOverlayWidgetController> EquipmentOverlayWidgetControllerClass;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Overlay")
+	TSubclassOf<USWMatchOverlayWidgetController> MatchOverlayWidgetControllerClass;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Shop")
 	TSubclassOf<USWShopWidgetController> ShopWidgetControllerClass;
 
@@ -126,6 +134,9 @@ protected:
 
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "UI|Overlay")
 	TObjectPtr<USWEquipmentOverlayWidgetController> EquipmentOverlayWidgetController;
+
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "UI|Overlay")
+	TObjectPtr<USWMatchOverlayWidgetController> MatchOverlayWidgetController;
 
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "UI|Shop")
 	TObjectPtr<USWShopWidgetController> ShopWidgetController;

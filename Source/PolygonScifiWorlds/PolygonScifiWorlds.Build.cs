@@ -9,7 +9,7 @@ public class PolygonScifiWorlds : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 		IWYUSupport = IWYUSupport.Full;
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "GameplayAbilities", "GameplayTags", "GameplayTasks", "UMG", "DeveloperSettings", "MassEntity", "MassSpawner", "MassAIBehavior", "StateTreeModule", "MassCommon" });
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "GameplayAbilities", "GameplayTags", "GameplayTasks", "UMG", "DeveloperSettings", "AIModule", "MassEntity", "MassSpawner", "MassAIBehavior", "StateTreeModule", "MassCommon" });
 
 		PrivateDependencyModuleNames.AddRange(new string[] { "EnhancedInput", "MassActors", "MassSignals", "MassSimulation" });
 

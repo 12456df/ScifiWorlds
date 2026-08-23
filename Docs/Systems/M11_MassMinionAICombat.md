@@ -114,7 +114,7 @@ StateTree 是状态的唯一编排者。它通过 Mass Tag/Fragment 输出 Proce
 | 类型 | 单一职责 | 拥有的数据 | 不拥有 |
 |---|---|---|---|
 | Mass StateTree | Advancing/Engaging/Attacking/Returning/Dead 状态选择 | 当前行为状态 | Health、Damage、Cooldown 数值 |
-| `USWMinionTargetRegistrySubsystem` | 注册可战斗 Actor 并提供低频候选快照 | Actor 弱引用索引、TargetId、空间/路线桶 | Team/Health 真值 |
+| `USWCombatTargetRegistrySubsystem` | 注册全局可战斗 Actor 并提供低频候选快照 | Actor 弱引用索引、TargetId、空间/路线桶 | Team/Health 真值 |
 | Targeting Processor | 按规则写当前 Target Fragment | 当前 Target 弱引用、LastSenseTime | Actor 生命周期 |
 | Lane Movement Processor | 写 Mass Transform/LaneDistance | LaneDistance、DesiredVelocity | Actor Health/GAS |
 | Actor Sync Processor | 将 Mass Transform 和权威线速度派生到服务器 Actor | 无长期状态 | 目标/行为决策 |
@@ -122,7 +122,7 @@ StateTree 是状态的唯一编排者。它通过 Mass Tag/Fragment 输出 Proce
 | Minion Attack Ability | 一次攻击生命周期 | 激活状态、Cooldown/Cost GE | Target 选择策略 |
 | Death Bridge Observer | Actor Death → Mass Dead Signal → 延迟销毁 | Corpse cleanup deadline | 奖励计算 |
 
-`USWMinionTargetRegistrySubsystem` 是只读索引，不是 Combat Manager。Combat Actor 仍拥有自己的 Team/Health/Death；Registry 只保存弱引用并在查询时复核接口。
+`USWCombatTargetRegistrySubsystem` 是只读索引，不是 Combat Manager。它位于 `Combat/Targeting`，可注册玩家、小兵和结构；Combat Actor 仍拥有自己的 Team/Health/Death，Registry 只保存弱引用并在查询时复核接口。小兵的查询结构仍保留 `Minion` 前缀，因为排序和 Leash 策略是小兵专属行为。
 
 ```mermaid
 flowchart LR
@@ -284,7 +284,7 @@ Death Bridge 不再次计算奖励，也不调用玩家 Respawn。小兵后续�
 
 ### 12.3 M11-3 目标注册与低频索敌契约
 
-- `USWMinionTargetRegistrySubsystem` 仅在服务器 World 中维护实现 Combat/Team Interface 的 Actor 弱引用与本局稳定 `TargetId`；所有 Team、存活和距离判断都在查询时重新读取接口，注册表不缓存玩法真值。
+- `USWCombatTargetRegistrySubsystem` 仅在服务器 World 中维护实现 Combat/Team Interface 的 Actor 弱引用与本局稳定 `TargetId`；所有 Team、存活和距离判断都在查询时重新读取接口，注册表不缓存玩法真值。它是全局战斗目标身份索引，不是小兵所有者。
 - `ASWCharacter_Base` 在服务器 `BeginPlay` 注册、`EndPlay` 注销，因此玩家重生的新 Avatar 会取得新 TargetId，旧 Avatar 即使遗漏注销也会在下一次查询时被弱引用清理。
 - `USWMinionTargetingProcessor` 在 `Advancing`、`Engaging` 或 `Attacking` Intent 下低频选择目标；在 `Returning` 下不获取或写入新目标。Returning 完成并进入 Advancing 后恢复相同的候选规则，不保留跨状态 TargetId 黑名单。所有索敌按 `TargetScanIntervalSeconds` 和 Entity Handle 哈希错峰，不使用每帧 Overlap、Actor Tick 或 Entity Timer。
 - `ASWLaneRoute` 在服务器 BeginPlay 冻结路线时保留全部 Spline 控制点，并可对快照采样点执行一次性向下地面投射；Mass 移动只读取该纯值快照。桥接 Actor 的 Capsule 半高在出生时写入 Lane Fragment，用于稳定地面贴合，不在逐帧 Processor 中做地面 Trace。

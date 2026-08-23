@@ -33,6 +33,20 @@ namespace
 			? ESWTeamId::TeamA
 			: ESWTeamId::TeamB;
 	}
+
+	uint8 GetCrystalDestroyedTeamBit(const ESWTeamId TeamId)
+	{
+		switch (TeamId)
+		{
+		case ESWTeamId::TeamA:
+			return 1 << 0;
+		case ESWTeamId::TeamB:
+			return 1 << 1;
+		case ESWTeamId::None:
+		default:
+			return 0;
+		}
+	}
 }
 
 ASWGameMode::ASWGameMode()
@@ -72,6 +86,10 @@ void ASWGameMode::BeginPlay()
 void ASWGameMode::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	GetWorldTimerManager().ClearTimer(PassiveGoldIncomeTimer);
+	GetWorldTimerManager().ClearTimer(CrystalResolutionTimer);
+	ClearPlayerRespawnTimersAuthority();
+	PendingDestroyedCrystalTeamMask = 0;
+	bCrystalResolutionScheduled = false;
 	if (USWMinionLaneWaveSubsystem* const LaneWaveSubsystem = GetWorld()->GetSubsystem<USWMinionLaneWaveSubsystem>())
 	{
 		LaneWaveSubsystem->StopWavesAuthority();
@@ -115,26 +133,85 @@ void ASWGameMode::ReportTowerDestroyed(const ESWTeamId TeamId)
 
 void ASWGameMode::ReportCrystalDestroyed(const ESWTeamId DestroyedTeamId)
 {
-	if (GetMatchState() != MatchState::InProgress)
+	if (!HasAuthority() || GetMatchState() != MatchState::InProgress)
 	{
 		return;
 	}
 
-	ASWGameState* SWGameState = GetGameState<ASWGameState>();
+	ASWGameState* const SWGameState = GetGameState<ASWGameState>();
 	if (!SWGameState || (DestroyedTeamId != ESWTeamId::TeamA && DestroyedTeamId != ESWTeamId::TeamB))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Ignoring a crystal destruction report with invalid match state or team."));
 		return;
 	}
 
-	if (SWGameState->GetWinningTeam() != ESWTeamId::None)
+	if (SWGameState->GetMatchResult().IsResolved())
 	{
 		return;
 	}
 
-	const ESWTeamId WinningTeamId = DestroyedTeamId == ESWTeamId::TeamA ? ESWTeamId::TeamB : ESWTeamId::TeamA;
-	SWGameState->SetWinningTeam(WinningTeamId);
-	EndMatch();
+	const uint8 DestroyedTeamBit = GetCrystalDestroyedTeamBit(DestroyedTeamId);
+	if (DestroyedTeamBit == 0)
+	{
+		return;
+	}
+
+	PendingDestroyedCrystalTeamMask |= DestroyedTeamBit;
+	if (!bCrystalResolutionScheduled)
+	{
+		bCrystalResolutionScheduled = true;
+		CrystalResolutionTimer = GetWorldTimerManager().SetTimerForNextTick(this, &ThisClass::ResolvePendingCrystalDestructionsAuthority);
+	}
+}
+
+void ASWGameMode::ResolvePendingCrystalDestructionsAuthority()
+{
+	bCrystalResolutionScheduled = false;
+	CrystalResolutionTimer.Invalidate();
+
+	const uint8 DestroyedTeamMask = PendingDestroyedCrystalTeamMask;
+	PendingDestroyedCrystalTeamMask = 0;
+	if (!HasAuthority() || GetMatchState() != MatchState::InProgress || DestroyedTeamMask == 0)
+	{
+		return;
+	}
+
+	ASWGameState* const SWGameState = GetGameState<ASWGameState>();
+	if (!SWGameState || SWGameState->GetMatchResult().IsResolved())
+	{
+		return;
+	}
+
+	const bool bTeamACrystalDestroyed = (DestroyedTeamMask & GetCrystalDestroyedTeamBit(ESWTeamId::TeamA)) != 0;
+	const bool bTeamBCrystalDestroyed = (DestroyedTeamMask & GetCrystalDestroyedTeamBit(ESWTeamId::TeamB)) != 0;
+	FSWMatchResult Result;
+	Result.EndReason = ESWMatchEndReason::CrystalDestroyed;
+	Result.ResolvedServerTime = SWGameState->GetServerWorldTimeSeconds();
+
+	if (bTeamACrystalDestroyed && bTeamBCrystalDestroyed)
+	{
+		Result.Outcome = ESWMatchOutcome::Draw;
+		Result.WinningTeam = ESWTeamId::None;
+	}
+	else if (bTeamACrystalDestroyed)
+	{
+		Result.Outcome = ESWMatchOutcome::TeamBWin;
+		Result.WinningTeam = ESWTeamId::TeamB;
+	}
+	else if (bTeamBCrystalDestroyed)
+	{
+		Result.Outcome = ESWMatchOutcome::TeamAWin;
+		Result.WinningTeam = ESWTeamId::TeamA;
+	}
+	else
+	{
+		return;
+	}
+
+	if (SWGameState->SetMatchResultAuthority(Result))
+	{
+		EndMatch();
+	}
 }
 
 FString ASWGameMode::InitNewPlayer(APlayerController* NewPlayerController, const FUniqueNetIdRepl& UniqueId,
@@ -358,8 +435,15 @@ void ASWGameMode::HandleMatchHasStarted()
 	{
 		// 开局后准备期不再有效，正式计时从同一份服务器同步时钟起算。
 		SWGameState->SetWarmupEndServerTime(0.0);
+		if (SWGameState->GetMatchResult().IsResolved())
+		{
+			SWGameState->ClearMatchResultAuthority();
+		}
 		SWGameState->SetMatchStartServerTime(SWGameState->GetServerWorldTimeSeconds());
 	}
+	GetWorldTimerManager().ClearTimer(CrystalResolutionTimer);
+	PendingDestroyedCrystalTeamMask = 0;
+	bCrystalResolutionScheduled = false;
 
 	Super::HandleMatchHasStarted();
 	StartPassiveGoldIncomeAuthority();
@@ -373,9 +457,11 @@ void ASWGameMode::HandleMatchHasStarted()
 void ASWGameMode::HandleMatchHasEnded()
 {
 	GetWorldTimerManager().ClearTimer(PassiveGoldIncomeTimer);
+	ClearPlayerRespawnTimersAuthority();
 	if (USWMinionLaneWaveSubsystem* const LaneWaveSubsystem = GetWorld()->GetSubsystem<USWMinionLaneWaveSubsystem>())
 	{
 		LaneWaveSubsystem->StopWavesAuthority();
+		LaneWaveSubsystem->StopActiveMinionBehaviorAuthority();
 	}
 	Super::HandleMatchHasEnded();
 }
@@ -421,6 +507,17 @@ void ASWGameMode::GrantPassiveGoldIncomeAuthority()
 		// 不检查 Pawn 或死亡状态：金币属于 PlayerState，死亡期间仍按当前等级增长。
 		SWPlayerState->GrantPassiveGoldIncomeAuthority(EconomyData->GetPassiveGoldPerSecondAtLevel(SWPlayerState->GetPlayerLevel()));
 	}
+}
+
+void ASWGameMode::ClearPlayerRespawnTimersAuthority()
+{
+	for (const TPair<TWeakObjectPtr<APlayerController>, FTimerHandle>& Pair : PlayerRespawnTimers)
+	{
+		// ClearTimer 要求可写 Handle；Map 的范围遍历值为 const，因此复制句柄后清理。
+		FTimerHandle RespawnTimer = Pair.Value;
+		GetWorldTimerManager().ClearTimer(RespawnTimer);
+	}
+	PlayerRespawnTimers.Empty();
 }
 
 AActor* ASWGameMode::ChoosePlayerStart_Implementation(AController* Player)

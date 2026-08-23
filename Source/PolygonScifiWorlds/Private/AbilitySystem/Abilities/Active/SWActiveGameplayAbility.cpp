@@ -15,6 +15,8 @@ USWActiveGameplayAbility::USWActiveGameplayAbility()
 
 	// 主动技能默认允许升级；具体内容可在蓝图 Class Defaults 中显式关闭。
 	bUpgradeable = true;
+	// 角色主动技能属于正式对局战斗内容；如未来存在准备阶段可用的特殊主动技能，可在其蓝图默认值中显式关闭。
+	bRequiresMatchInProgress = true;
 	MaxChargesByLevel.Value = 1.f;
 }
 

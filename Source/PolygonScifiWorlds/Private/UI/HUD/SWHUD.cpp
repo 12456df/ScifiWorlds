@@ -10,6 +10,7 @@
 #include "UI/Widget/SWUserWidget.h"
 #include "UI/WidgetController/Overlay/SWAttributeOverlayWidgetController.h"
 #include "UI/WidgetController/Overlay/SWEquipmentOverlayWidgetController.h"
+#include "UI/WidgetController/Overlay/SWMatchOverlayWidgetController.h"
 #include "UI/WidgetController/Overlay/SWProgressionOverlayWidgetController.h"
 #include "UI/WidgetController/Overlay/SWSkillOverlayWidgetController.h"
 #include "UI/WidgetController/Overlay/SWWeaponOverlayWidgetController.h"
@@ -230,6 +231,36 @@ USWEquipmentOverlayWidgetController* ASWHUD::GetEquipmentOverlayWidgetController
 	return EquipmentOverlayWidgetController;
 }
 
+USWMatchOverlayWidgetController* ASWHUD::GetMatchOverlayWidgetController()
+{
+	if (MatchOverlayWidgetController)
+	{
+		return MatchOverlayWidgetController;
+	}
+
+	ASWPlayerController* const SWPlayerController = Cast<ASWPlayerController>(PlayerOwner);
+	if (!SWPlayerController || !SWPlayerController->IsLocalController())
+	{
+		return nullptr;
+	}
+
+	UClass* ControllerClass = MatchOverlayWidgetControllerClass.Get();
+	if (!ControllerClass)
+	{
+		ControllerClass = USWMatchOverlayWidgetController::StaticClass();
+	}
+
+	MatchOverlayWidgetController = NewObject<USWMatchOverlayWidgetController>(this, ControllerClass);
+	if (MatchOverlayWidgetController)
+	{
+		const FSWWidgetControllerParams Params(SWPlayerController, SWPlayerController->GetPlayerState<ASWPlayerState>(), GetWorld() ? GetWorld()->GetGameState<ASWGameState>() : nullptr);
+		MatchOverlayWidgetController->SetWidgetControllerParams(Params);
+		MatchOverlayWidgetController->BindCallbacksToDependencies();
+	}
+
+	return MatchOverlayWidgetController;
+}
+
 USWShopWidgetController* ASWHUD::GetShopWidgetController()
 {
 	if (ShopWidgetController)
@@ -307,6 +338,13 @@ void ASWHUD::RefreshOverlayWidgetControllers()
 		EquipmentOverlayWidgetController->SetWidgetControllerParams(Params);
 		EquipmentOverlayWidgetController->BindCallbacksToDependencies();
 		EquipmentOverlayWidgetController->BroadcastInitialValues();
+	}
+
+	if (MatchOverlayWidgetController)
+	{
+		MatchOverlayWidgetController->SetWidgetControllerParams(Params);
+		MatchOverlayWidgetController->BindCallbacksToDependencies();
+		MatchOverlayWidgetController->BroadcastInitialValues();
 	}
 
 	if (ShopWidgetController)

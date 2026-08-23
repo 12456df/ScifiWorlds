@@ -1,15 +1,16 @@
 // Copyright (c) 2026 ZhangJian Limited. All rights reserved.
 
-#include "Mass/Minions/SWMinionTargetRegistrySubsystem.h"
+#include "Combat/Targeting/SWCombatTargetRegistrySubsystem.h"
 
 #include "Character/SWCharacter_Minion.h"
 #include "Character/SWCharacter_Player.h"
 #include "Interaction/SWCombatInterface.h"
 #include "Interaction/SWTeamInterface.h"
+#include "Interaction/SWTargetableInterface.h"
 
-#include UE_INLINE_GENERATED_CPP_BY_NAME(SWMinionTargetRegistrySubsystem)
+#include UE_INLINE_GENERATED_CPP_BY_NAME(SWCombatTargetRegistrySubsystem)
 
-FSWMinionTargetRegistrationHandle USWMinionTargetRegistrySubsystem::RegisterTarget(AActor& TargetActor)
+FSWMinionTargetRegistrationHandle USWCombatTargetRegistrySubsystem::RegisterTarget(AActor& TargetActor)
 {
 	FSWMinionTargetRegistrationHandle Result;
 	if (!TargetActor.HasAuthority()
@@ -42,7 +43,7 @@ FSWMinionTargetRegistrationHandle USWMinionTargetRegistrySubsystem::RegisterTarg
 	return Result;
 }
 
-void USWMinionTargetRegistrySubsystem::UnregisterTarget(const AActor& TargetActor)
+void USWCombatTargetRegistrySubsystem::UnregisterTarget(const AActor& TargetActor)
 {
 	const TObjectKey<const AActor> ActorKey(&TargetActor);
 	const uint32* const TargetId = ActorToTargetId.Find(ActorKey);
@@ -55,7 +56,28 @@ void USWMinionTargetRegistrySubsystem::UnregisterTarget(const AActor& TargetActo
 	ActorToTargetId.Remove(ActorKey);
 }
 
-FSWMinionTargetResult USWMinionTargetRegistrySubsystem::FindBestTarget(const FSWMinionTargetQuery& Query)
+bool USWCombatTargetRegistrySubsystem::TryGetRegisteredTargetInfo(const AActor& TargetActor, FSWMinionRegisteredTargetInfo& OutInfo) const
+{
+	OutInfo = FSWMinionRegisteredTargetInfo();
+
+	const uint32* const TargetId = ActorToTargetId.Find(TObjectKey<const AActor>(&TargetActor));
+	if (!TargetId)
+	{
+		return false;
+	}
+
+	const FTargetEntry* const Entry = EntriesByTargetId.Find(*TargetId);
+	if (!Entry || Entry->Actor.Get() != &TargetActor)
+	{
+		return false;
+	}
+
+	OutInfo.TargetId = Entry->TargetId;
+	OutInfo.Category = Entry->Category;
+	return OutInfo.IsValid();
+}
+
+FSWMinionTargetResult USWCombatTargetRegistrySubsystem::FindBestTarget(const FSWMinionTargetQuery& Query)
 {
 	FSWMinionTargetResult Result;
 	if (!Query.SourceActor || Query.SourceTeam == ESWTeamId::None || Query.AcquisitionRange <= 0.f)
@@ -118,13 +140,13 @@ FSWMinionTargetResult USWMinionTargetRegistrySubsystem::FindBestTarget(const FSW
 	return Result;
 }
 
-int32 USWMinionTargetRegistrySubsystem::GetRegisteredTargetCount()
+int32 USWCombatTargetRegistrySubsystem::GetRegisteredTargetCount()
 {
 	PruneInvalidTargets();
 	return EntriesByTargetId.Num();
 }
 
-void USWMinionTargetRegistrySubsystem::PruneInvalidTargets()
+void USWCombatTargetRegistrySubsystem::PruneInvalidTargets()
 {
 	for (auto It = EntriesByTargetId.CreateIterator(); It; ++It)
 	{
@@ -146,13 +168,19 @@ void USWMinionTargetRegistrySubsystem::PruneInvalidTargets()
 	}
 }
 
-bool USWMinionTargetRegistrySubsystem::IsLegalTarget(const FTargetEntry& Entry, const FSWMinionTargetQuery& Query, float& OutDistanceSquared) const
+bool USWCombatTargetRegistrySubsystem::IsLegalTarget(const FTargetEntry& Entry, const FSWMinionTargetQuery& Query, float& OutDistanceSquared) const
 {
 	AActor* const Candidate = Entry.Actor.Get();
 	if (!Candidate || Candidate == Query.SourceActor
 		|| !Candidate->Implements<USWCombatInterface>()
 		|| !Candidate->Implements<USWTeamInterface>()
 		|| ISWCombatInterface::Execute_IsDead(Candidate))
+	{
+		return false;
+	}
+
+	if (const ISWTargetableInterface* const Targetable = Cast<ISWTargetableInterface>(Candidate);
+		Targetable && !Targetable->IsTargetableBy(Query.SourceActor))
 	{
 		return false;
 	}
@@ -170,7 +198,7 @@ bool USWMinionTargetRegistrySubsystem::IsLegalTarget(const FTargetEntry& Entry, 
 	return OutDistanceSquared <= FMath::Square(Query.AcquisitionRange);
 }
 
-ESWMinionTargetCategory USWMinionTargetRegistrySubsystem::ClassifyTarget(const AActor& TargetActor)
+ESWMinionTargetCategory USWCombatTargetRegistrySubsystem::ClassifyTarget(const AActor& TargetActor)
 {
 	if (TargetActor.IsA<ASWCharacter_Minion>())
 	{

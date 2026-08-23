@@ -18,6 +18,7 @@ USWWeaponFireGameplayAbility::USWWeaponFireGameplayAbility()
 	ActivationOwnedTags.AddTag(SWGameplayTags::State_Weapon_Firing);
 	ActivationBlockedTags.AddTag(SWGameplayTags::State_Weapon_Reloading);
 	CancelAbilitiesWithTag.AddTag(SWGameplayTags::Ability_Movement_Sprint);
+	bRequiresMatchInProgress = true;
 }
 
 bool USWWeaponFireGameplayAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,

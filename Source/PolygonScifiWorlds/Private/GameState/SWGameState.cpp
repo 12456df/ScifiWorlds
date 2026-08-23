@@ -40,6 +40,14 @@ void ASWGameState::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	Super::EndPlay(EndPlayReason);
 }
 
+void ASWGameState::OnRep_MatchState()
+{
+	Super::OnRep_MatchState();
+
+	// 引擎在服务器 SetMatchState 时也会调用此函数，因此该委托同时覆盖 Authority 与客户端复制到达。
+	OnSWMatchStateChanged.Broadcast(GetMatchState());
+}
+
 int32 ASWGameState::GetTeamPlayerCount(const ESWTeamId TeamId) const
 {
 	if (TeamId == ESWTeamId::None)
@@ -101,7 +109,7 @@ void ASWGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 
 	DOREPLIFETIME(ASWGameState, WarmupEndServerTime);
 	DOREPLIFETIME(ASWGameState, MatchStartServerTime);
-	DOREPLIFETIME(ASWGameState, WinningTeam);
+	DOREPLIFETIME(ASWGameState, MatchResult);
 	DOREPLIFETIME(ASWGameState, TeamAStats);
 	DOREPLIFETIME(ASWGameState, TeamBStats);
 	DOREPLIFETIME(ASWGameState, ProgressionData);
@@ -137,6 +145,26 @@ void ASWGameState::OnRep_ServerNetworkSnapshot()
 	OnServerNetworkSnapshotChanged.Broadcast(ServerNetworkSnapshot);
 }
 
+void ASWGameState::OnRep_MatchResult()
+{
+	BroadcastMatchResultChanged();
+}
+
+void ASWGameState::OnRep_TeamAStats()
+{
+	OnTeamMatchStatsChanged.Broadcast();
+}
+
+void ASWGameState::OnRep_TeamBStats()
+{
+	OnTeamMatchStatsChanged.Broadcast();
+}
+
+void ASWGameState::BroadcastMatchResultChanged()
+{
+	OnMatchResultChanged.Broadcast(MatchResult);
+}
+
 void ASWGameState::SetWarmupEndServerTime(const double NewWarmupEndServerTime)
 {
 	check(HasAuthority());
@@ -149,11 +177,50 @@ void ASWGameState::SetMatchStartServerTime(const double NewMatchStartServerTime)
 	MatchStartServerTime = FMath::Max(0.0, NewMatchStartServerTime);
 }
 
+bool ASWGameState::SetMatchResultAuthority(const FSWMatchResult& NewMatchResult)
+{
+	check(HasAuthority());
+
+	if (MatchResult.IsResolved() || !NewMatchResult.IsResolved()
+		|| NewMatchResult.EndReason == ESWMatchEndReason::None
+		|| !FMath::IsFinite(NewMatchResult.ResolvedServerTime))
+	{
+		return false;
+	}
+
+	const bool bHasValidWinner = (NewMatchResult.Outcome == ESWMatchOutcome::TeamAWin && NewMatchResult.WinningTeam == ESWTeamId::TeamA)
+		|| (NewMatchResult.Outcome == ESWMatchOutcome::TeamBWin && NewMatchResult.WinningTeam == ESWTeamId::TeamB)
+		|| (NewMatchResult.Outcome == ESWMatchOutcome::Draw && NewMatchResult.WinningTeam == ESWTeamId::None);
+	if (!bHasValidWinner)
+	{
+		return false;
+	}
+
+	MatchResult = NewMatchResult;
+	ForceNetUpdate();
+	BroadcastMatchResultChanged();
+	return true;
+}
+
+void ASWGameState::ClearMatchResultAuthority()
+{
+	check(HasAuthority());
+
+	MatchResult = FSWMatchResult();
+	BroadcastMatchResultChanged();
+}
+
 void ASWGameState::SetWinningTeam(const ESWTeamId NewWinningTeam)
 {
 	check(HasAuthority());
-	check(NewWinningTeam == ESWTeamId::None || NewWinningTeam == ESWTeamId::TeamA || NewWinningTeam == ESWTeamId::TeamB);
-	WinningTeam = NewWinningTeam;
+	check(NewWinningTeam == ESWTeamId::TeamA || NewWinningTeam == ESWTeamId::TeamB);
+
+	FSWMatchResult NewMatchResult;
+	NewMatchResult.Outcome = NewWinningTeam == ESWTeamId::TeamA ? ESWMatchOutcome::TeamAWin : ESWMatchOutcome::TeamBWin;
+	NewMatchResult.EndReason = ESWMatchEndReason::CrystalDestroyed;
+	NewMatchResult.WinningTeam = NewWinningTeam;
+	NewMatchResult.ResolvedServerTime = GetServerWorldTimeSeconds();
+	SetMatchResultAuthority(NewMatchResult);
 }
 
 void ASWGameState::RecordTeamKill(const ESWTeamId TeamId)
@@ -163,6 +230,8 @@ void ASWGameState::RecordTeamKill(const ESWTeamId TeamId)
 	if (FSWTeamMatchStats* TeamMatchStats = GetMutableTeamMatchStats(TeamId))
 	{
 		++TeamMatchStats->KillCount;
+		ForceNetUpdate();
+		OnTeamMatchStatsChanged.Broadcast();
 	}
 }
 
@@ -173,6 +242,8 @@ void ASWGameState::RecordTowerDestroyed(const ESWTeamId TeamId)
 	if (FSWTeamMatchStats* TeamMatchStats = GetMutableTeamMatchStats(TeamId))
 	{
 		++TeamMatchStats->TowerDestroyCount;
+		ForceNetUpdate();
+		OnTeamMatchStatsChanged.Broadcast();
 	}
 }
 

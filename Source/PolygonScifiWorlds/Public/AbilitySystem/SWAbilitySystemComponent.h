@@ -77,6 +77,9 @@ public:
 	/** 仅服务器调用：写入或清理可复制的死亡状态 Tag，供死亡与重生流程统一使用。 */
 	void SetDeadStateTagAuthority(bool bIsDead);
 
+	/** 仅服务器调用：写入或清理可复制的无敌 Tag；结构推进锁定等权威规则通过此入口同步 GAS 最终门槛。 */
+	void SetInvulnerableStateTagAuthority(bool bIsInvulnerable);
+
 	bool ApplyDamageEffectToTargetAuthority(
 		UAbilitySystemComponent* TargetAbilitySystemComponent,
 		TSubclassOf<USWDamageGameplayEffect> DamageEffectClass,

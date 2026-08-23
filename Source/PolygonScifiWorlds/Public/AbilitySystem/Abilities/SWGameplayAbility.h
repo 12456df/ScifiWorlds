@@ -19,6 +19,12 @@ class POLYGONSCIFIWORLDS_API USWGameplayAbility : public UGameplayAbility
 	GENERATED_BODY()
 
 public:
+	/**
+	 * 为 true 时，只有已复制到本端的比赛状态为 InProgress 才允许激活。
+	 * 默认关闭，避免移动、瞄准、换弹等非战斗系统 Ability 被错误限制；伤害与战斗 Ability 应在其 C++ 父类中显式开启。
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SW|Ability|Match")
+	bool bRequiresMatchInProgress = false;
 
 	/** 所有项目 Ability 的统一死亡门槛；服务器和预测端均拒绝已死亡 Avatar 的新激活。 */
 	virtual bool CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,

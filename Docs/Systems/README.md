@@ -25,5 +25,7 @@
 | M07 主动技能框架 | [M07_GameplayAbilityPipeline.md](M07_GameplayAbilityPipeline.md) | `12456df` | Completed |
 | M08 装备与属性修正 | [M08_EquipmentAttributeModifiers.md](M08_EquipmentAttributeModifiers.md) | `feature/m08-m09-equipment-economy-shop` | Completed |
 | M09 经济、六槽装备栏与商店 | [M09_EconomyInventoryShop.md](M09_EconomyInventoryShop.md) | `feature/m08-m09-equipment-economy-shop` | Completed |
-| M10 路线、波次与 Mass 生成基础 | [M10_LaneWaveMassFoundation.md](M10_LaneWaveMassFoundation.md) | `12456df` | Draft |
-| M11 Mass 小兵 AI 与战斗 | [M11_MassMinionAICombat.md](M11_MassMinionAICombat.md) | `12456df` | Draft |
+| M10 路线、波次与 Mass 生成基础 | [M10_LaneWaveMassFoundation.md](M10_LaneWaveMassFoundation.md) | `12456df` | Approved |
+| M11 Mass 小兵 AI 与战斗 | [M11_MassMinionAICombat.md](M11_MassMinionAICombat.md) | `12456df` | Approved |
+| M12 防御塔与水晶 | [M12_DefenseStructures.md](M12_DefenseStructures.md) | `12456df` | Draft |
+| M13 完整比赛流程 | [M13_AuthoritativeMatchFlow.md](M13_AuthoritativeMatchFlow.md) | `12456df` | Draft |
