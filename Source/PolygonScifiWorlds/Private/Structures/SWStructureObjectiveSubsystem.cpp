@@ -5,6 +5,7 @@
 #include "Engine/World.h"
 #include "GameMode/SWGameMode.h"
 #include "HAL/IConsoleManager.h"
+#include "Interaction/SWTeamInterface.h"
 #include "Structures/SWDefenseStructure.h"
 #include "TimerManager.h"
 
@@ -467,8 +468,6 @@ void USWStructureObjectiveSubsystem::HandleRegisteredStructureDeath(
 	const FSWDeathContext& DeathContext,
 	const TWeakObjectPtr<ASWDefenseStructure> Structure)
 {
-	static_cast<void>(DeathContext);
-
 	ASWDefenseStructure* const DeadStructure = Structure.Get();
 	if (!IsAuthorityWorld() || !bGraphValid || !DeadStructure || !DeadStructure->IsDeadCommitted())
 	{
@@ -484,13 +483,35 @@ void USWStructureObjectiveSubsystem::HandleRegisteredStructureDeath(
 	DestroyedStructureIds.Add(StructureId);
 	ApplyVulnerabilityStatesAuthority();
 
-	// 目标子系统仅报告被毁水晶所属队伍；胜负与同帧平局由服务器 GameMode 统一裁决。
-	if (DeadStructure->GetStructureKind() == ESWStructureKind::Crystal)
+	ASWGameMode* const SWGameMode = Cast<ASWGameMode>(GetWorld()->GetAuthGameMode());
+	if (!SWGameMode)
 	{
-		if (ASWGameMode* const SWGameMode = Cast<ASWGameMode>(GetWorld()->GetAuthGameMode()))
+		return;
+	}
+
+	if (DeadStructure->GetStructureKind() == ESWStructureKind::Tower)
+	{
+		// 塔计分归属只信任造成最后一次有效伤害的原始施加者，不从 Projectile 或受害方反推。
+		const ISWTeamInterface* const DestroyingTeamSource = DeathContext.InstigatorActor
+			? Cast<ISWTeamInterface>(DeathContext.InstigatorActor)
+			: nullptr;
+		const ESWTeamId DestroyingTeamId = DestroyingTeamSource ? DestroyingTeamSource->GetTeamId() : ESWTeamId::None;
+		if ((DestroyingTeamId == ESWTeamId::TeamA || DestroyingTeamId == ESWTeamId::TeamB)
+			&& DestroyingTeamId != DeadStructure->GetTeamId())
 		{
-			SWGameMode->ReportCrystalDestroyed(DeadStructure->GetTeamId());
+			SWGameMode->ReportTowerDestroyed(DestroyingTeamId);
 		}
+		else
+		{
+			UE_LOG(LogSWStructureObjective, Warning,
+				TEXT("Tower '%s' was destroyed without a valid enemy instigator team; tower score was not reported."),
+				*StructureId.ToString());
+		}
+	}
+	else if (DeadStructure->GetStructureKind() == ESWStructureKind::Crystal)
+	{
+		// 水晶只报告被毁方；胜负与同帧平局仍由服务器 GameMode 统一裁决。
+		SWGameMode->ReportCrystalDestroyed(DeadStructure->GetTeamId());
 	}
 }
 

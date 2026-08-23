@@ -1,8 +1,8 @@
 # ScifiWorlds 模块开发路线图
 
 **状态：** Approved（Baseline v1）
-**最后更新：** 2026-08-21
-**当前模块：** M12/M13 — 防御塔、水晶与完整比赛流程（Design）
+**最后更新：** 2026-08-23
+**当前模块：** M14 — HUD 与游戏 UI（Design）
 
 ## 目的
 
@@ -28,8 +28,8 @@
 | M09 | 经济、背包与商店 | M02、M08 | PlayerState 金币、等级击杀赏金、被动收入、六槽装备栏、商店区域、Tab 浏览、购买/出售原子事务、OwnerOnly 复制和重生保留完成 | Completed | `feat: complete M08 equipment modifiers and M09 economy shop` |
 | M10 | 路线与兵线生成 | M02 | 三条路线、出生点、波次和双方周期生成均由数据驱动，并由服务器控制 | Completed | `feat: add lane and wave system` |
 | M11 | 小兵 AI 与战斗 | M05、M10 | 小兵沿线移动、选择目标、攻击和死亡完整运行；AI 由服务器执行，客户端只接收必要状态 | Completed | `feat: add networked minion AI` |
-| M12 | 防御塔与水晶 | M05、M10、M11 | 队伍归属、攻击、受击、路线推进约束和水晶状态完成并由服务器权威同步 | Not Started | `feat: add towers and team crystals` |
-| M13 | 完整比赛流程 | M02、M12 | 准备、开始、进行、结束和重置状态完整；摧毁敌方水晶后服务器唯一判定并同步结果 | Not Started | `feat: complete authoritative match flow` |
+| M12 | 防御塔与水晶 | M05、M10、M11 | 队伍归属、攻击、受击、路线推进约束和水晶状态完成并由服务器权威同步 | Completed | `feat: add towers and team crystals` |
+| M13 | 完整比赛流程 | M02、M12 | 准备、开始、进行、结束和重置状态完整；摧毁敌方水晶后服务器唯一判定并同步结果 | Completed | `feat: complete authoritative match flow` |
 | M14 | HUD 与游戏 UI | M05、M08、M09、M13 | 在 M05 Combat Overlay 基础上完成技能、冷却、装备、商店、目标、比赛状态、计分板和结算界面，并统一完整 HUD 视觉与导航 | Not Started | `feat: add gameplay HUD and shop UI` |
 | M15 | 会话与 DS 部署 | M01、M02、M13 | DS 参数、会话发现、加入、断线处理、服务器构建与部署说明完成 | Not Started | `feat: add dedicated server session flow` |
 | M16 | 垂直切片与加固 | M01–M15 | 至少一个完整角色和三路对局可在 DS 上从加入玩到结算；通过晚加入、重生、断线、丢包、性能和打包测试 | Not Started | `feat: deliver playable multiplayer vertical slice` |

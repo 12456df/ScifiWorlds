@@ -1,8 +1,8 @@
 # M12 防御塔与水晶设计文档
 
-**状态：** Draft
+**状态：** Completed
 **负责人：** `12456df`
-**最后更新：** 2026-08-21
+**最后更新：** 2026-08-23
 **建议分支：** `codex/m12-m13-structures-match-flow`
 **建议提交：** `feat: add towers and team crystals`
 **依赖：** M05、M10、M11
@@ -349,6 +349,8 @@ FSWDamageReceptionResult
 - 2026-08-22：已完成步骤 6 的服务器权威结构攻击基础。`USWStructureAttackGameplayAbility` 由 `Event.Combat.StructureAttack` 触发，先复核当前目标并 Commit 冷却，再以非 Tick 的服务器前摇 Timer 生成追踪火球；火球命中继续复用统一 Damage GE。`ASWStructureAttackProjectile` 继承通用 `ASWProjectile`，但使用独立 `StructureProjectile` Object Channel，明确忽略 `ShieldBarrier` 且不实现可被屏障吸收，因此玩家 Shield 不会拦截防御塔攻击。具体 Damage GE、Cooldown GE、火球蓝图、速度、半径和 Cue 仍由结构攻击 Ability 蓝图配置。
 - 2026-08-22：已完成步骤 7 的统一伤害接收策略接入。`ASWDefenseStructure` 实现 `ISWDamageReceiverPolicyInterface`，由 `USWExecCalc_Damage` 在服务器上读取受信任的 Source Avatar、伤害类型与位置后调用；结构只接受范围内敌方物理伤害，并在既有护甲/穿透/暴击后应用 `DamageReductionPercent`。接口不写 Attribute，`IncomingDamage` 仍仅由 ExecCalc 写入，物理吸血继续以 AttributeSet 中的实际扣血结果结算。普通角色与小兵未实现该接口，结算行为不变。
 - 2026-08-23：新增 `sw.Structure.Diagnostics` 服务器/Standalone 只读诊断命令。它列出已注册结构的 Actor 名称、StructureId、队伍、类型、路线、前置关系、死亡状态与 `Vulnerable` 状态，并同时输出结构图是否通过验证及验证错误；该命令不改写推进、属性或目标状态。
+- 2026-08-23：补齐步骤 9 的防御塔死亡报告。目标子系统只在结构首次死亡、结构图有效且服务器确认后，依据 `FSWDeathContext::InstigatorActor` 的 `ISWTeamInterface` 队伍真值向 GameMode 报告摧毁方；来源为空、无队伍或与塔同队时不计分并记录警告。水晶继续只报告被摧毁方，由 M13 的 GameMode 在下一服务器 Tick 统一裁决胜负。
+- 2026-08-23：用户已完成 Dedicated Server 构建与双客户端验证：结构图解锁、结构攻击、伤害接收、塔计分、水晶摧毁与胜负链路均由服务器权威运行；M12 完成。
 
 ## 13. 需求追踪与验收
 

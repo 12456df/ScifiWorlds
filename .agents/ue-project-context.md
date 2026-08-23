@@ -86,6 +86,12 @@
 
 ## Build Configuration
 
+### M12/M13 Validation (2026-08-23)
+
+- 用户已确认完成 M12/M13 的 Dedicated Server 构建与双客户端验证：防御塔/水晶的目标选择、攻击、伤害接收、前置结构解锁、推塔计分与水晶胜负裁决均为服务器权威。
+- 比赛结束后服务器和客户端保持 `WaitingPostMatch`；M13 不自动重开或 Travel，回大厅与下一局流程明确留待 M15。
+- M12/M13 收尾提交将在 `main` 完成后记录；下一模块为 M14。
+
 ### M11 Validation (2026-08-21)
 
 - 用户已确认 Staged Dedicated Server + 两客户端完成 M11 验收：小兵在服务器权威 Mass/StateTree 下完成推进、索敌、攻击、死亡与回收；客户端正确接收移动、攻击、死亡表现，晚加入可恢复当前可见状态。

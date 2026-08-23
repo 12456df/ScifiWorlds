@@ -1,8 +1,8 @@
 # M13 完整比赛流程设计文档
 
-**状态：** Draft
+**状态：** Completed
 **负责人：** `12456df`
-**最后更新：** 2026-08-22
+**最后更新：** 2026-08-23
 **建议分支：** `codex/m12-m13-structures-match-flow`
 **建议提交：** `feat: complete authoritative match flow`
 **依赖：** M02、M12
@@ -243,7 +243,7 @@ M13 不拥有“下一局”或“回大厅”的决策权，因此不调用 `Re
 
 - **同帧双水晶为平局。** 这是最不依赖回调顺序、也最容易测试的服务器规则。
 - **结果使用显式 Outcome。** `WinningTeam=None` 不能同时代表“未结算”和“平局”。
-- **重置使用 Restart Travel。** 对独立开发者而言，它比为每个系统增加 Reset 接口更可靠、更省维护。
+- **赛后保持终局状态。** M13 不自动重置、重开或 Travel；未来由 M15 会话系统明确决定回大厅或开始下一局。
 - **行为停止不是安全边界。** AI/Ability 会主动停止，但 ExecCalc 仍按 MatchState 拒绝任何迟到伤害。
 - **M13 不扩张到 Session。** 当前地图重开属于比赛生命周期；大厅、发现和断线重连仍由 M15 负责。
 
@@ -255,3 +255,4 @@ M13 不拥有“下一局”或“回大厅”的决策权，因此不调用 `Re
 - 2026-08-22：已完成步骤 4 的阶段启停收敛。`HandleMatchHasStarted()` 清理旧赛后瞬态并只启动被动金币与波次；`HandleMatchHasEnded()` 清理金币和全部重生 Timer，停止后续波次，并冻结现存 Mass 小兵的移动、索敌、攻击意图及已激活攻击 Ability。结构 AI 继续只订阅 `ASWGameState::OnSWMatchStateChanged`，由阶段变化自行启停 BehaviorTree 和结构攻击，不反向依赖 GameMode。
 - 2026-08-22：根据已确认的产品规则，步骤 5 收敛为赛后终局而非自动重开。移除了 `PostMatchEndServerTime`、赛后 Timer 与 `RestartGame()`；`HandleMatchHasEnded()` 完成玩法停机后保持 `WaitingPostMatch`。回大厅、下一局和任何 Travel 均留待 M15 会话流程明确实现，M13 不创建占位大厅。
 - 2026-08-22：已完成步骤 6 的最小比赛 Overlay 数据入口。`USWMatchOverlayWidgetController` 只读订阅 GameState 的阶段、结果与队伍统计；快照只提供游戏完整秒数、双方击杀数和摧毁防御塔数及保留的结果字段。游戏时间通过本地每秒 Timer 刷新，不使用 Widget Tick 或逐秒复制；队伍统计改为 RepNotify，并在服务器写入时立即广播本机事件。具体 UMG 布局、颜色和文本格式仍由蓝图处理。
+- 2026-08-23：用户已完成 Dedicated Server 构建与双客户端验证；比赛从准备到进行、结构推进和水晶裁决均稳定由服务器驱动，赛后保持 `WaitingPostMatch`，M13 完成。
