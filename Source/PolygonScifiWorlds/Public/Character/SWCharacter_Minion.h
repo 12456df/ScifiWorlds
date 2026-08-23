@@ -74,6 +74,9 @@ public:
 	 */
 	ESWMinionAttackAttemptResult TryActivateMinionAttackAuthority(AActor* TargetActor);
 
+	/** 仅服务器：比赛结束时取消当前小兵攻击 Ability，避免已排队的动画时点继续请求伤害。 */
+	void CancelMinionAttackAbilityAuthority();
+
 	/** 仅服务器/攻击 GA 使用的纯校验；Range 与 Team/Death 均在此处统一复核。 */
 	ESWMinionAttackAttemptResult ValidateMinionAttackTargetAuthority(const AActor* TargetActor) const;
 

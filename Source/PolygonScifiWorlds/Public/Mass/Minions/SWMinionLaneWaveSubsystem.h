@@ -57,6 +57,12 @@ public:
 	/** 由 ASWGameMode 在比赛结束或 World 退出时调用；仅停止后续波次，不越权销毁 M10-5 尚未桥接的 Entity。 */
 	void StopWavesAuthority();
 
+	/**
+	 * 由 ASWGameMode 在比赛结束时调用：冻结现存小兵的移动、索敌与攻击意图，并取消已激活的攻击 Ability。
+	 * 不销毁 Entity，赛后世界仍保留最终战场画面，后续 Restart Travel 统一重置它们。
+	 */
+	void StopActiveMinionBehaviorAuthority();
+
 	/** 当前 World 中仍有效的、由本波次系统创建的小兵 Entity 数量。 */
 	int32 GetActiveMinionEntityCount() const;
 

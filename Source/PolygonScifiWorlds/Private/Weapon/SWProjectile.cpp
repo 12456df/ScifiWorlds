@@ -42,9 +42,9 @@ ASWProjectile::ASWProjectile()
 
 void ASWProjectile::ConfigureAuthorityCollision()
 {
-	// 弹丸属于 Projectile 对象类型。世界阻挡它；Pawn 与屏障等对象可通过 Projectile 默认重叠接收事件。
+	// 默认弹丸使用 Projectile 对象类型；子类可通过虚函数选择独立对象类型。
 	CollisionComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	CollisionComponent->SetCollisionObjectType(SWCollisionChannels::Projectile);
+	CollisionComponent->SetCollisionObjectType(GetProjectileCollisionChannel());
 	CollisionComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
 	CollisionComponent->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
 	CollisionComponent->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Block);
@@ -53,6 +53,16 @@ void ASWProjectile::ConfigureAuthorityCollision()
 	CollisionComponent->SetCollisionResponseToChannel(SWCollisionChannels::ShieldBarrier, ECR_Overlap);
 	CollisionComponent->SetNotifyRigidBodyCollision(true);
 	CollisionComponent->SetGenerateOverlapEvents(true);
+}
+
+ECollisionChannel ASWProjectile::GetProjectileCollisionChannel() const
+{
+	return SWCollisionChannels::Projectile;
+}
+
+bool ASWProjectile::ShouldHandleImpactAuthority(AActor* HitActor) const
+{
+	return true;
 }
 
 void ASWProjectile::BeginPlay()
@@ -126,7 +136,10 @@ void ASWProjectile::OnProjectileHit(UPrimitiveComponent* HitComponent, AActor* O
 {
 	if (HasAuthority())
 	{
-		HandleAuthoritativeImpact(OtherActor, Hit);
+		if (ShouldHandleImpactAuthority(OtherActor))
+		{
+			HandleAuthoritativeImpact(OtherActor, Hit);
+		}
 	}
 }
 
@@ -134,7 +147,8 @@ void ASWProjectile::OnProjectileBeginOverlap(UPrimitiveComponent* OverlappedComp
 	UPrimitiveComponent* OtherComponent, const int32 OtherBodyIndex, const bool bFromSweep, const FHitResult& SweepResult)
 {
 	// Pawn 对 Projectile 的默认响应为重叠；仍由服务器在这里执行原有命中伤害。
-	if (HasAuthority() && OtherActor && OtherActor != GetInstigator() && OtherActor->IsA<APawn>())
+	if (HasAuthority() && OtherActor && OtherActor != GetInstigator() && OtherActor->IsA<APawn>()
+		&& ShouldHandleImpactAuthority(OtherActor))
 	{
 		HandleAuthoritativeImpact(OtherActor, SweepResult);
 	}

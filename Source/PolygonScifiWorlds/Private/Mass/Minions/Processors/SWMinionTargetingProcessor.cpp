@@ -4,7 +4,7 @@
 
 #include "Mass/Minions/SWMinionLaneWaveSubsystem.h"
 #include "Mass/Minions/SWMinionMassTypes.h"
-#include "Mass/Minions/SWMinionTargetRegistrySubsystem.h"
+#include "Combat/Targeting/SWCombatTargetRegistrySubsystem.h"
 #include "Engine/World.h"
 #include "MassActorSubsystem.h"
 #include "MassCommonFragments.h"
@@ -48,7 +48,7 @@ void USWMinionTargetingProcessor::ConfigureQueries(const TSharedRef<FMassEntityM
 void USWMinionTargetingProcessor::Execute(FMassEntityManager& EntityManager, FMassExecutionContext& Context)
 {
 	UWorld* const World = EntityManager.GetWorld();
-	USWMinionTargetRegistrySubsystem* const TargetRegistry = World ? World->GetSubsystem<USWMinionTargetRegistrySubsystem>() : nullptr;
+	USWCombatTargetRegistrySubsystem* const TargetRegistry = World ? World->GetSubsystem<USWCombatTargetRegistrySubsystem>() : nullptr;
 	USWMinionLaneWaveSubsystem* const LaneWaveSubsystem = World ? World->GetSubsystem<USWMinionLaneWaveSubsystem>() : nullptr;
 	UMassSignalSubsystem* const SignalSubsystem = World ? World->GetSubsystem<UMassSignalSubsystem>() : nullptr;
 	if (!World || !TargetRegistry || !LaneWaveSubsystem || !SignalSubsystem)

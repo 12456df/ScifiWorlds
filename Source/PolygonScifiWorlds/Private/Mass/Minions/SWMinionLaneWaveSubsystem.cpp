@@ -15,11 +15,13 @@
 #include "Mass/Minions/Processors/SWMinionCleanupProcessor.h"
 #include "Mass/Minions/Processors/SWMinionLaneMovementProcessor.h"
 #include "Mass/Minions/Processors/SWMinionTargetingProcessor.h"
-#include "Mass/Minions/SWMinionTargetRegistrySubsystem.h"
+#include "Combat/Targeting/SWCombatTargetRegistrySubsystem.h"
 #include "Mass/Minions/SWMinionWaveData.h"
 #include "MassActorSubsystem.h"
+#include "MassCommonFragments.h"
 #include "MassEntityManager.h"
 #include "MassEntitySubsystem.h"
+#include "MassEntityView.h"
 #include "MassProcessor.h"
 #include "MassSimulationSubsystem.h"
 #include "TimerManager.h"
@@ -134,6 +136,60 @@ void USWMinionLaneWaveSubsystem::StopWavesAuthority()
 	LaneRoutes.Reset();
 	LaneRouteSnapshots.Reset();
 	ReportedLaneSamplingFailures.Reset();
+}
+
+void USWMinionLaneWaveSubsystem::StopActiveMinionBehaviorAuthority()
+{
+	if (!IsAuthorityWorld())
+	{
+		return;
+	}
+
+	UMassEntitySubsystem* const EntitySubsystem = GetWorld() ? GetWorld()->GetSubsystem<UMassEntitySubsystem>() : nullptr;
+	if (!EntitySubsystem)
+	{
+		return;
+	}
+
+	FMassEntityManager& EntityManager = EntitySubsystem->GetMutableEntityManager();
+	for (const FMassEntityHandle Entity : ActiveMinionEntities)
+	{
+		if (!EntityManager.IsEntityValid(Entity))
+		{
+			continue;
+		}
+
+		FMassEntityView EntityView(EntityManager, Entity);
+		if (FMassActorFragment* const ActorFragment = EntityView.GetFragmentDataPtr<FMassActorFragment>())
+		{
+			if (ASWCharacter_Minion* const Minion = Cast<ASWCharacter_Minion>(ActorFragment->GetMutable(FMassActorFragment::EActorAccess::OnlyWhenAlive)))
+			{
+				Minion->CancelMinionAttackAbilityAuthority();
+				Minion->SetMassVisualVelocityAuthority(FVector::ZeroVector);
+			}
+		}
+
+		if (FSWMinionIntentFragment* const Intent = EntityView.GetFragmentDataPtr<FSWMinionIntentFragment>())
+		{
+			Intent->Behavior = ESWMinionBehaviorIntent::None;
+			Intent->DesiredVelocity = FVector::ZeroVector;
+			Intent->bAttackRequested = false;
+			Intent->bReachedReturnAnchor = false;
+		}
+
+		if (FSWMinionTargetFragment* const Target = EntityView.GetFragmentDataPtr<FSWMinionTargetFragment>())
+		{
+			Target->TargetActor.Reset();
+			Target->TargetId = 0;
+			Target->LastValidServerTime = 0.f;
+			Target->bIsWithinAttackRange = false;
+		}
+
+		if (FSWMinionLeashFragment* const Leash = EntityView.GetFragmentDataPtr<FSWMinionLeashFragment>())
+		{
+			Leash->bNeedsForwardLaneRejoinProjection = false;
+		}
+	}
 }
 
 bool USWMinionLaneWaveSubsystem::TrySampleLaneTransform(
@@ -292,7 +348,7 @@ FSWMinionRuntimeDiagnostics USWMinionLaneWaveSubsystem::GetRuntimeDiagnosticsAut
 			}
 		}
 
-		if (USWMinionTargetRegistrySubsystem* const TargetRegistry = World->GetSubsystem<USWMinionTargetRegistrySubsystem>())
+		if (USWCombatTargetRegistrySubsystem* const TargetRegistry = World->GetSubsystem<USWCombatTargetRegistrySubsystem>())
 		{
 			Diagnostics.RegisteredTargetCount = TargetRegistry->GetRegisteredTargetCount();
 		}

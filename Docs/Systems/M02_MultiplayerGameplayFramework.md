@@ -59,10 +59,10 @@ stateDiagram-v2
 
 ### 配置与未决项
 
-- `WarmupDurationSeconds = 30`、每队 `MaxPlayersPerTeam = 5`、`MinimumPlayersToStart`、开始后是否允许观战，必须放在可编辑的比赛规则配置中，而不是散落在 C++ 常量中。
+- `WarmupDurationSeconds = 60`、每队 `MaxPlayersPerTeam = 5`、`MinimumPlayersToStart`、开始后是否允许观战，必须放在可编辑的比赛规则配置中，而不是散落在 C++ 常量中。
 - M02 的临时选队入口为连接 URL 参数 `?Team=TeamA` 或 `?Team=TeamB`，用于打包 Game/DS 的本地 Dedicated Server 验证；正式大厅/选队 UI 的提交方式留给 M15，服务器的验证规则保持不变。编辑器 `PIE` 的自动平衡分队仅为开发入口，不进入打包版本的对局规则。
 - 本局没有定义时限；水晶是唯一已确认的胜利条件。
-- 两个水晶在同一服务器帧被摧毁时的裁决（平局或优先级）为 **TBD**。M02 的 `ReportCrystalDestroyed` 必须设计为幂等，并在 M12 落地前补齐该规则。
+- M12/M13 已确定：水晶毁灭报告由服务器聚合至下一 Tick 再统一裁决；两个水晶在同一次裁决窗口内均被摧毁时结果为平局。结果提交必须幂等，详见 [M13 完整比赛流程](M13_AuthoritativeMatchFlow.md)。
 - 退出后的队伍人数继续由 `GameState::PlayerArray` 派生；GameMode 不维护第二份 roster。
 
 ## 1. 目标与边界

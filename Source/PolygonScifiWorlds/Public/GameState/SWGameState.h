@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameState.h"
+#include "GameState/SWMatchResultTypes.h"
 #include "Team/SWTeamTypes.h"
 #include "SWGameState.generated.h"
 
@@ -55,6 +56,12 @@ struct FSWServerNetworkSnapshot
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FSWOnServerNetworkSnapshotChanged, const FSWServerNetworkSnapshot&, Snapshot);
+/** 比赛结果在服务器写入或客户端复制到达时广播；订阅者只能读取结果。 */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FSWOnMatchResultChanged, const FSWMatchResult&, MatchResult);
+/** GameState 在本机观察到引擎 MatchState 变化后广播；服务器 AI 与本地 UI 都只能读取并响应。 */
+DECLARE_MULTICAST_DELEGATE_OneParam(FSWOnMatchStateChanged, FName /* NewMatchState */);
+/** 队伍公开统计在服务器写入或客户端复制到达时广播；订阅者自行读取完整快照。 */
+DECLARE_MULTICAST_DELEGATE(FSWOnTeamMatchStatsChanged);
 
 /** Public, replicated match statistics for one team. */
 USTRUCT(BlueprintType)
@@ -99,8 +106,12 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Match|Time")
 	float GetMatchElapsedSeconds() const;
 
+	/** 返回本局唯一的持久比赛结果快照；Undecided 表示尚未结算。 */
 	UFUNCTION(BlueprintPure, Category = "Match")
-	ESWTeamId GetWinningTeam() const { return WinningTeam; }
+	FSWMatchResult GetMatchResult() const { return MatchResult; }
+
+	UFUNCTION(BlueprintPure, Category = "Match")
+	ESWTeamId GetWinningTeam() const { return MatchResult.WinningTeam; }
 
 	/** 返回本局使用的全局成长配置；GameMode 只在服务器设定，GameState 将其复制给客户端 UI。 */
 	UFUNCTION(BlueprintPure, Category = "Progression")
@@ -122,8 +133,19 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Network Diagnostics")
 	FSWOnServerNetworkSnapshotChanged OnServerNetworkSnapshotChanged;
 
+	/** 比赛结果变化的本地通知；服务器写入和客户端 RepNotify 都会广播。 */
+	UPROPERTY(BlueprintAssignable, Category = "Match")
+	FSWOnMatchResultChanged OnMatchResultChanged;
+
+	/** 仅本机委托，不复制；订阅者应在绑定后自行读取一次 GetMatchState() 兼容初始化顺序。 */
+	FSWOnMatchStateChanged OnSWMatchStateChanged;
+
+	/** 仅本机委托，不复制；在击杀或防御塔摧毁计数变化后通知 UI 等只读消费者。 */
+	FSWOnTeamMatchStatsChanged OnTeamMatchStatsChanged;
+
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	virtual void OnRep_MatchState() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 private:
@@ -132,6 +154,10 @@ private:
 
 	void SetWarmupEndServerTime(double NewWarmupEndServerTime);
 	void SetMatchStartServerTime(double NewMatchStartServerTime);
+	/** 仅服务器 GameMode 可写入；每局仅接受一次有效的已裁决结果。 */
+	bool SetMatchResultAuthority(const FSWMatchResult& NewMatchResult);
+	void ClearMatchResultAuthority();
+	/** M13 步骤 2 前的兼容入口；后续水晶报告改为 NextTick 聚合后直接提交 MatchResult。 */
 	void SetWinningTeam(ESWTeamId NewWinningTeam);
 	void RecordTeamKill(ESWTeamId TeamId);
 	void RecordTowerDestroyed(ESWTeamId TeamId);
@@ -147,6 +173,17 @@ private:
 	UFUNCTION()
 	void OnRep_ServerNetworkSnapshot();
 
+	UFUNCTION()
+	void OnRep_MatchResult();
+
+	UFUNCTION()
+	void OnRep_TeamAStats();
+
+	UFUNCTION()
+	void OnRep_TeamBStats();
+
+	void BroadcastMatchResultChanged();
+
 	/** Zero means that no warmup window is currently active. */
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Match|Time", meta = (AllowPrivateAccess = "true"))
 	double WarmupEndServerTime = 0.0;
@@ -155,13 +192,14 @@ private:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Match|Time", meta = (AllowPrivateAccess = "true"))
 	double MatchStartServerTime = 0.0;
 
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Match", meta = (AllowPrivateAccess = "true"))
-	ESWTeamId WinningTeam = ESWTeamId::None;
+	/** 服务器唯一写入且复制给全体客户端的比赛结果真值。 */
+	UPROPERTY(ReplicatedUsing = OnRep_MatchResult, BlueprintReadOnly, Category = "Match", meta = (AllowPrivateAccess = "true"))
+	FSWMatchResult MatchResult;
 
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Match", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(ReplicatedUsing = OnRep_TeamAStats, BlueprintReadOnly, Category = "Match", meta = (AllowPrivateAccess = "true"))
 	FSWTeamMatchStats TeamAStats;
 
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Match", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(ReplicatedUsing = OnRep_TeamBStats, BlueprintReadOnly, Category = "Match", meta = (AllowPrivateAccess = "true"))
 	FSWTeamMatchStats TeamBStats;
 
 	/** 本局全局成长配置的已复制只读入口；具体升级规则在 M05 后续步骤消费它。 */

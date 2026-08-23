@@ -271,6 +271,13 @@ void USWAbilitySystemComponent::SetDeadStateTagAuthority(const bool bIsDead)
 	SetLooseGameplayTagCount(SWGameplayTags::State_Dead, bIsDead ? 1 : 0, EGameplayTagReplicationState::TagOnly);
 }
 
+void USWAbilitySystemComponent::SetInvulnerableStateTagAuthority(const bool bIsInvulnerable)
+{
+	check(IsOwnerActorAuthoritative());
+
+	SetLooseGameplayTagCount(SWGameplayTags::State_Invulnerable, bIsInvulnerable ? 1 : 0, EGameplayTagReplicationState::TagOnly);
+}
+
 bool USWAbilitySystemComponent::ApplyDamageEffectToTargetAuthority(
 	UAbilitySystemComponent* const TargetAbilitySystemComponent,
 	const TSubclassOf<USWDamageGameplayEffect> DamageEffectClass,

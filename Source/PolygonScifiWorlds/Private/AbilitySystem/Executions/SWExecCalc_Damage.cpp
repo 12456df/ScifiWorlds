@@ -8,8 +8,12 @@
 #include "AbilitySystem/SWAbilityTypes.h"
 #include "AbilitySystem/SWGameplayEffect.h"
 #include "AbilitySystemComponent.h"
+#include "Engine/World.h"
+#include "GameMode/SWGameMode.h"
+#include "GameFramework/Actor.h"
 #include "GameplayEffectExtension.h"
 #include "GameplayTags/SWGameplayTags.h"
+#include "Interaction/SWDamageReceiverPolicyInterface.h"
 
 namespace
 {
@@ -89,6 +93,14 @@ void USWExecCalc_Damage::Execute_Implementation(
 		return;
 	}
 
+	// ExecCalc 是所有伤害通道最终汇合处；即使迟到 Projectile、周期 GE 或 AI 未及时停止，也不能在非正式对局阶段写入 IncomingDamage。
+	const UWorld* const World = TargetAbilitySystemComponent->GetWorld();
+	const ASWGameMode* const GameMode = World ? World->GetAuthGameMode<ASWGameMode>() : nullptr;
+	if (!GameMode || GameMode->GetMatchState() != MatchState::InProgress)
+	{
+		return;
+	}
+
 	const FGameplayEffectSpec& Spec = ExecutionParams.GetOwningSpec();
 	const USWDamageGameplayEffect* const DamageEffect = Cast<USWDamageGameplayEffect>(Spec.Def);
 	if (!DamageEffect || !DamageEffect->GetDamageCalculationConfig())
@@ -99,8 +111,7 @@ void USWExecCalc_Damage::Execute_Implementation(
 
 	if (SourceAbilitySystemComponent == TargetAbilitySystemComponent
 		|| USWGameplayEffect::AreSourceAndTargetOnSameTeam(Spec, TargetAbilitySystemComponent)
-		|| TargetAbilitySystemComponent->HasMatchingGameplayTag(SWGameplayTags::State_Dead)
-		|| TargetAbilitySystemComponent->HasMatchingGameplayTag(SWGameplayTags::State_Invulnerable))
+		|| TargetAbilitySystemComponent->HasMatchingGameplayTag(SWGameplayTags::State_Dead))
 	{
 		return;
 	}
@@ -121,6 +132,33 @@ void USWExecCalc_Damage::Execute_Implementation(
 		&& DamageType != SWGameplayTags::Damage_Type_True)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("伤害 GE 缺少有效伤害类型：%s"), *GetNameSafe(Spec.Def));
+		return;
+	}
+
+	// 特殊接收者只给出纯服务器决策；常规目标没有该接口，继续走原有统一伤害公式。
+	float PostMitigationMultiplier = 1.f;
+	AActor* const TargetAvatar = TargetAbilitySystemComponent->GetAvatarActor();
+	if (const ISWDamageReceiverPolicyInterface* const ReceiverPolicy = Cast<ISWDamageReceiverPolicyInterface>(TargetAvatar))
+	{
+		AActor* const SourceAvatar = Spec.GetContext().GetOriginalInstigator();
+		FSWDamageReceptionQuery ReceptionQuery;
+		ReceptionQuery.SourceAvatar = SourceAvatar;
+		ReceptionQuery.TargetActor = TargetAvatar;
+		ReceptionQuery.DamageType = DamageType;
+		ReceptionQuery.ServerSourceLocation = SourceAvatar ? SourceAvatar->GetActorLocation() : FVector::ZeroVector;
+
+		const FSWDamageReceptionResult ReceptionResult = ReceiverPolicy->EvaluateDamageReceptionAuthority(ReceptionQuery);
+		if (!ReceptionResult.bAccepted || !FMath::IsFinite(ReceptionResult.PostMitigationMultiplier))
+		{
+			return;
+		}
+
+		PostMitigationMultiplier = FMath::Max(0.f, ReceptionResult.PostMitigationMultiplier);
+	}
+
+	// 通用无敌 Tag 是所有受击者共享的最终门槛；结构策略已在上方给出更具体的拒绝原因。
+	if (TargetAbilitySystemComponent->HasMatchingGameplayTag(SWGameplayTags::State_Invulnerable))
+	{
 		return;
 	}
 
@@ -165,6 +203,9 @@ void USWExecCalc_Damage::Execute_Implementation(
 			FinalDamage *= FMath::Max(1.f, CaptureMagnitude(ExecutionParams, Statics.CriticalDamageDef, EvaluationParameters));
 		}
 	}
+
+	// 结构等特殊目标在护甲、穿透和暴击之后应用自己的静态减伤；吸血随后按实际扣血量结算。
+	FinalDamage *= PostMitigationMultiplier;
 
 	const float CapturedPhysicalLifesteal = DamageType == SWGameplayTags::Damage_Type_Physical
 		? CaptureMagnitude(ExecutionParams, Statics.PhysicalLifestealDef, EvaluationParameters)

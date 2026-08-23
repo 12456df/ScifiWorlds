@@ -24,6 +24,7 @@ USWMinionAttackGameplayAbility::USWMinionAttackGameplayAbility()
 	FAbilityTriggerData& Trigger = AbilityTriggers.AddDefaulted_GetRef();
 	Trigger.TriggerTag = SWGameplayTags::Event_Combat_MinionAttack;
 	Trigger.TriggerSource = EGameplayAbilityTriggerSource::GameplayEvent;
+	bRequiresMatchInProgress = true;
 }
 
 void USWMinionAttackGameplayAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,

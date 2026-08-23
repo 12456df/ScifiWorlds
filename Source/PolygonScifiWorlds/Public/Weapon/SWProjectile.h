@@ -38,6 +38,12 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
+	/** 返回本弹丸的对象类型；结构投射物覆写为 StructureProjectile 以绕开玩家屏障吸收规则。 */
+	virtual ECollisionChannel GetProjectileCollisionChannel() const;
+
+	/** 命中或重叠时的最终目标门槛；子类可限制为初始化时锁定的目标。 */
+	virtual bool ShouldHandleImpactAuthority(AActor* HitActor) const;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Projectile")
 	TObjectPtr<USphereComponent> CollisionComponent;
 
@@ -64,10 +70,12 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Projectile")
 	void BP_OnProjectileImpact(const FHitResult& Hit);
 
-private:
+protected:
 	void ConfigureAuthorityCollision();
 	void HandleAuthoritativeImpact(AActor* HitActor, const FHitResult& Hit);
 	bool ApplyDamageEffectAuthority(AActor* HitActor);
+
+private:
 
 	bool bInitialized = false;
 	bool bImpactHandled = false;

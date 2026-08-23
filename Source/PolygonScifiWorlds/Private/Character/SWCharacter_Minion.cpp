@@ -155,6 +155,14 @@ ESWMinionAttackAttemptResult ASWCharacter_Minion::TryActivateMinionAttackAuthori
 		: ESWMinionAttackAttemptResult::AbilityUnavailable;
 }
 
+void ASWCharacter_Minion::CancelMinionAttackAbilityAuthority()
+{
+	if (HasAuthority() && AbilitySystemComponent && MinionAttackAbilityHandle.IsValid())
+	{
+		AbilitySystemComponent->CancelAbilityHandle(MinionAttackAbilityHandle);
+	}
+}
+
 bool ASWCharacter_Minion::SetMassEntityHandleAuthority(const FMassEntityHandle& InMassEntityHandle)
 {
 	if (!HasAuthority() || !bHasDeferredInitialization || MassEntityHandle.IsValid() || !InMassEntityHandle.IsValid())

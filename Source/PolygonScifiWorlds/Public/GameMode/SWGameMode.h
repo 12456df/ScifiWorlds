@@ -29,7 +29,7 @@ public:
 	/** 仅在比赛进行中记录服务器确认的队伍推塔。 */
 	void ReportTowerDestroyed(ESWTeamId TeamId);
 
-	/** 服务器确认水晶摧毁后结算比赛；已产生胜方时忽略重复报告。 */
+	/** 服务器确认水晶摧毁后记录本帧候选；实际胜负统一在下一服务器 Tick 裁决。 */
 	void ReportCrystalDestroyed(ESWTeamId DestroyedTeamId);
 
 protected:
@@ -95,9 +95,15 @@ protected:
 	/** 仅服务器调用：按当前等级向全部有效队伍玩家结算一次被动金币。 */
 	void GrantPassiveGoldIncomeAuthority();
 
+	/** 仅服务器：取消并移除当前局全部玩家重生 Timer。 */
+	void ClearPlayerRespawnTimersAuthority();
+
+	/** 聚合同一服务器帧内的水晶死亡报告，唯一提交单边胜利或平局。 */
+	void ResolvePendingCrystalDestructionsAuthority();
+
 	/** 准备期长度；首名有效玩家加入后开始计时。 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "比赛规则", meta = (ClampMin = "0.0"))
-	float WarmupDurationSeconds = 120.0f;
+	float WarmupDurationSeconds = 60.0f;
 
 	/** 单支队伍可容纳的最大对局玩家数。 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "比赛规则", meta = (ClampMin = "1"))
@@ -128,4 +134,14 @@ protected:
 
 	/** 服务器唯一被动金币计时器；每秒结算一次，不使用 Tick。 */
 	FTimerHandle PassiveGoldIncomeTimer;
+
+	/** 本帧已报告被毁水晶的位图；仅服务器暂态，不复制。 */
+	uint8 PendingDestroyedCrystalTeamMask = 0;
+
+	/** 防止同一帧的重复报告重复安排裁决。 */
+	bool bCrystalResolutionScheduled = false;
+
+	/** 仅用于跟踪/清理下一 Tick 裁决定时器。 */
+	FTimerHandle CrystalResolutionTimer;
+
 };
