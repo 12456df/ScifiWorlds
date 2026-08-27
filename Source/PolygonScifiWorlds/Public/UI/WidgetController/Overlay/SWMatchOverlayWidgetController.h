@@ -61,7 +61,11 @@ public:
 
 private:
 	void BroadcastMatchOverlay();
-	void UnbindCallbacks();
+	/**
+	 * 解除对 GameState 的订阅。
+	 * 正常重绑时清理本地计时器；GC 销毁阶段不得再访问 World/GameInstance 的计时器。
+	 */
+	void UnbindCallbacks(bool bClearElapsedTimeTimer = true);
 	void RefreshElapsedTimeTimer();
 	void HandleMatchStateChanged(FName NewMatchState);
 	void HandleTeamMatchStatsChanged();

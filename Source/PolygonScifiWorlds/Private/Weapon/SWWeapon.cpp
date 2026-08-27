@@ -14,6 +14,7 @@
 #include "Engine/World.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
+#include "GameplayEffectTypes.h"
 #include "GameplayTags/SWGameplayTags.h"
 #include "Interaction/SWCombatInterface.h"
 #include "Kismet/GameplayStatics.h"
@@ -193,7 +194,16 @@ FSWResolvedShot ASWWeapon::TryFireAuthority()
 
 	if (WeaponConfig.FireGameplayCueTag.IsValid())
 	{
-		ExecuteOwnerGameplayCue(WeaponConfig.FireGameplayCueTag);
+		FGameplayCueParameters CueParameters;
+		CueParameters.Location = MuzzleTransform.GetLocation();
+		CueParameters.Normal = MuzzleTransform.GetRotation().GetForwardVector();
+		CueParameters.Instigator = OwnerPawn;
+		CueParameters.EffectCauser = this;
+		CueParameters.SourceObject = this;
+		// 玩家 ASC 使用 Mixed 复制；确保模拟代理也能拿到枪口位置与前向参数。
+		CueParameters.bReplicateLocationWhenUsingMinimalRepProxy = true;
+
+		ExecuteOwnerGameplayCue(WeaponConfig.FireGameplayCueTag, CueParameters);
 	}
 
 	Result.bFired = true;
@@ -226,7 +236,7 @@ void ASWWeapon::NotifyReloadStateChangedAuthority(const bool bReloading)
 		BP_OnReloadStateChanged(bReloading);
 		if (bReloading)
 		{
-			ExecuteOwnerGameplayCue(SWGameplayTags::GameplayCue_Weapon_Reload);
+			ExecuteOwnerGameplayCue(SWGameplayTags::GameplayCue_Weapon_Reload, FGameplayCueParameters());
 		}
 	}
 }
@@ -517,7 +527,7 @@ void ASWWeapon::HandleMagazineCapacityMultiplierChanged(const FOnAttributeChange
 	}
 }
 
-void ASWWeapon::ExecuteOwnerGameplayCue(const FGameplayTag CueTag) const
+void ASWWeapon::ExecuteOwnerGameplayCue(const FGameplayTag CueTag, const FGameplayCueParameters& CueParameters) const
 {
 	if (!CueTag.IsValid())
 	{
@@ -528,7 +538,7 @@ void ASWWeapon::ExecuteOwnerGameplayCue(const FGameplayTag CueTag) const
 	{
 		if (UAbilitySystemComponent* AbilitySystemComponent = AbilitySystemOwner->GetAbilitySystemComponent())
 		{
-			AbilitySystemComponent->ExecuteGameplayCue(CueTag);
+			AbilitySystemComponent->ExecuteGameplayCue(CueTag, CueParameters);
 		}
 	}
 }

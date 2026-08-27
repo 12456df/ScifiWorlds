@@ -7,6 +7,8 @@
 #include "AbilitySystem/Data/SWCombatantDefinition.h"
 #include "AbilitySystem/SWGameplayEffect.h"
 #include "AbilitySystem/SWAttributeSet.h"
+#include "Collision/SWCollisionChannels.h"
+#include "Components/CapsuleComponent.h"
 #include "GameplayEffect.h"
 #include "GameplayTagContainer.h"
 #include "GameplayTags/SWGameplayTags.h"
@@ -14,11 +16,21 @@
 #include "Combat/Targeting/SWCombatTargetRegistrySubsystem.h"
 #include "Net/UnrealNetwork.h"
 #include "Player/SWPlayerState.h"
+#include "UI/World/SWTargetHealthBarComponent.h"
 
 ASWCharacter_Base::ASWCharacter_Base(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	PrimaryActorTick.bCanEverTick = false;
+
+	// 只响应本地玩家的表现范围球；默认通道为 Ignore，不会影响角色的真实移动或战斗碰撞。
+	GetCapsuleComponent()->SetCollisionResponseToChannel(SWCollisionChannels::HealthBarRangeProbe, ECR_Overlap);
+	GetCapsuleComponent()->SetGenerateOverlapEvents(true);
+
+	// 默认放在胶囊体顶端上方；不同体型由派生 Character 蓝图只调整 Relative Location。
+	TargetHealthBarComponent = CreateDefaultSubobject<USWTargetHealthBarComponent>(TEXT("TargetHealthBarComponent"));
+	TargetHealthBarComponent->SetupAttachment(GetRootComponent());
+	TargetHealthBarComponent->SetRelativeLocation(FVector(0.f, 0.f, 140.f));
 }
 
 void ASWCharacter_Base::BeginPlay()

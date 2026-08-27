@@ -1,8 +1,8 @@
 # ScifiWorlds 模块开发路线图
 
 **状态：** Approved（Baseline v1）
-**最后更新：** 2026-08-23
-**当前模块：** M14 — HUD 与游戏 UI（Design）
+**最后更新：** 2026-08-27
+**当前模块：** M15 — 会话与 DS 部署（Not Started）
 
 ## 目的
 
@@ -30,7 +30,7 @@
 | M11 | 小兵 AI 与战斗 | M05、M10 | 小兵沿线移动、选择目标、攻击和死亡完整运行；AI 由服务器执行，客户端只接收必要状态 | Completed | `feat: add networked minion AI` |
 | M12 | 防御塔与水晶 | M05、M10、M11 | 队伍归属、攻击、受击、路线推进约束和水晶状态完成并由服务器权威同步 | Completed | `feat: add towers and team crystals` |
 | M13 | 完整比赛流程 | M02、M12 | 准备、开始、进行、结束和重置状态完整；摧毁敌方水晶后服务器唯一判定并同步结果 | Completed | `feat: complete authoritative match flow` |
-| M14 | HUD 与游戏 UI | M05、M08、M09、M13 | 在 M05 Combat Overlay 基础上完成技能、冷却、装备、商店、目标、比赛状态、计分板和结算界面，并统一完整 HUD 视觉与导航 | Not Started | `feat: add gameplay HUD and shop UI` |
+| M14 | HUD 与游戏 UI | M05、M08、M09、M13 | 复用前序已完成的技能、冷却、装备、商店和战斗 HUD，补齐双方击杀/推塔、比赛时间和最小比赛结果显示；按确认范围完成高收益战斗视觉反馈且不改变权威玩法 | Completed | `feat: complete match HUD and gameplay polish` |
 | M15 | 会话与 DS 部署 | M01、M02、M13 | DS 参数、会话发现、加入、断线处理、服务器构建与部署说明完成 | Not Started | `feat: add dedicated server session flow` |
 | M16 | 垂直切片与加固 | M01–M15 | 至少一个完整角色和三路对局可在 DS 上从加入玩到结算；通过晚加入、重生、断线、丢包、性能和打包测试 | Not Started | `feat: deliver playable multiplayer vertical slice` |
 
@@ -83,7 +83,8 @@ M00 的目标是建立足以安全开始开发的功能方向与技术规范，�
 | M08 | `feat: complete M08 equipment modifiers and M09 economy shop` | 2026-08-15 | 数据驱动装备定义、Infinite GE 槽位应用/移除、装备重生保留与最大资源按比例换算完成；首批八件装备覆盖主要 AttributeSet 修正并通过验证。Development Editor/Game/Server Target 构建成功；Staged DS 加双客户端完成装备属性、重生保留和 UI 验证。 |
 | M09 | `feat: complete M08 equipment modifiers and M09 economy shop` | 2026-08-15 | PlayerState 金币、等级击杀赏金、被动收入、六槽装备栏、交易区域、Tab 商店界面与服务器权威购买/出售原子事务完成。Development Editor/Game/Server Target 构建成功；Staged DS 加双客户端完成金币、交易、装备生效/出售、死亡重生与 UI 验证。 |
 | M10 | `feat: add lane and wave system` | 2026-08-17 | Mass 20 Entity 冒烟、三条路线、双方三路周期波次、Entity/Actor/ASC Ready Bridge 与原子回滚完成。Development Editor/Game/Server Target 构建成功；Staged DS 加双客户端完成多波生成、Team/Level/ASC 关联和晚加入状态验证。 |
-| M11 | `d95e74f` | 2026-08-21 | 服务器权威 Mass/StateTree 小兵完成沿线推进、索敌、攻击、死亡与回收；脱战重新索敌、同队轻量分离、交会绕行与攻击转向完成。用户已在 Staged DS 加双客户端验证移动、战斗、死亡、晚加入与比赛结束表现。 |
+| M14 | `feat: complete match HUD and gameplay polish` | 2026-08-27 | 对局 HUD、赛后 Win/Loss Banner、开火/命中/升级 GameplayCue、准星命中确认、敌方本地 Mesh Overlay、高亮目标头顶血条及 AoeBuff 的首版通用 Buff 完成。Development Editor/Game/Server Target 构建成功；Staged Dedicated Server 加两客户端完成验证。 |
+| M11 | `d95e74f` | 2026-08-21 | 服务器权威 Mass/StateTree 小兵完成沿线推进、索敌、攻击、死亡与回收；脱战重新索敌、同队可配置分离、交会绕行与攻击转向完成。用户已在 Staged DS 加双客户端验证移动、战斗、死亡、晚加入与比赛结束表现。 |
 
 ## 路线图变更规则
 

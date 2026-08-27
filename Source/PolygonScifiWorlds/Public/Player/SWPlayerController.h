@@ -11,6 +11,15 @@
 #include "SWPlayerController.generated.h"
 
 class USWInputConfig;
+class UMaterialInterface;
+class UMeshComponent;
+
+/** 本地高亮系统接管前的 Mesh Overlay 状态；退出或不再是敌人时必须原样恢复。 */
+struct FSWLocalEnemyHighlightComponentState
+{
+	TWeakObjectPtr<UMaterialInterface> OverlayMaterial;
+	float OverlayMaterialMaxDrawDistance = 0.f;
+};
 
 /**
  * ScifiWorlds 的每名玩家控制边界。
@@ -30,6 +39,7 @@ public:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void OnRep_PlayerState() override;
 	virtual void PostProcessInput(const float DeltaTime, const bool bGamePaused) override;
+	virtual void PlayerTick(float DeltaTime) override;
 	//~ End APlayerController interface
 
 	/** 返回唯一输入配置；Pawn 只能读取，不能持有第二份配置。 */
@@ -42,6 +52,13 @@ public:
 	 */
 	UFUNCTION(Client, Unreliable)
 	void ClientShowDamageNumber(const FSWDamageNumberPayload& Payload);
+
+	/**
+	 * 仅服务器在本 Controller 的 Pawn 实际造成伤害后调用。
+	 * 此为可丢失的本地表现事件；血条可见性不复制，也不承载战斗真值。
+	 */
+	UFUNCTION(Client, Unreliable)
+	void ClientShowDamagedTargetHealthBar(AActor* TargetActor);
 
 	/** 仅由所属客户端输入调用：请求服务器升级指定的固定主动技能槽位。 */
 	void RequestActiveAbilityUpgrade(FGameplayTag InputTag);
@@ -86,8 +103,47 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USWInputConfig> InputConfig = nullptr;
 
+	/**
+	 * 仅所属客户端的敌方 Mesh Overlay 高亮开关。不复制、不写入玩法状态；所有材质选择由 Controller 蓝图配置。
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Presentation|Enemy Highlight", meta = (AllowPrivateAccess = "true"))
+	bool bEnableEnemyHighlights = true;
+
+	/** 常规敌方单位使用的半透明 Overlay 材质实例。缺失时高亮系统安全停用。 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Presentation|Enemy Highlight", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UMaterialInterface> EnemyHighlightOverlayMaterial = nullptr;
+
+	/** 准星首个命中敌人使用的 Overlay 材质实例。未配置时回退至常规敌方材质。 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Presentation|Enemy Highlight", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UMaterialInterface> FocusedEnemyHighlightOverlayMaterial = nullptr;
+
+	/** 高亮的最大显示距离（cm）。同时限制本地 CPU 投影与 Mesh Overlay 渲染。 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Presentation|Enemy Highlight", meta = (AllowPrivateAccess = "true", ClampMin = "1.0", Units = "cm"))
+	float EnemyHighlightMaxDisplayDistance = 2500.f;
+
+	/** 高亮刷新只服务本地可视反馈；20Hz 足以跟随准星，同时避免每帧遍历所有战斗单位。 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Presentation|Enemy Highlight", meta = (AllowPrivateAccess = "true", ClampMin = "0.016"))
+	float EnemyHighlightRefreshIntervalSeconds = 0.05f;
+
+	/** Pawn/Weapon 尚未复制完成时使用的保守射线距离。正常情况下优先读取当前武器的 MaxAimDistance。 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Presentation|Enemy Highlight", meta = (AllowPrivateAccess = "true", ClampMin = "1.0"))
+	float FallbackEnemyHighlightTraceDistance = 20000.f;
+
 	/** 仅本地 Controller 的 IMC 生命周期入口；重生 Pawn 不会重复添加映射。 */
 	void ApplyGameplayMappingContext();
 	void RemoveGameplayMappingContext();
 	void RefreshOverlayWidgetControllers();
+
+	/** 只在拥有此视口的 Controller 上运行的渲染投影；不发送 RPC，也不写服务器状态。 */
+	void UpdateEnemyHighlightPresentation();
+	void ClearEnemyHighlightPresentation();
+	bool IsHostileHighlightTarget(AActor* CandidateActor) const;
+	AActor* FindCrosshairEnemyHighlightTarget() const;
+	float GetEnemyHighlightTraceDistance() const;
+	bool IsWithinEnemyHighlightDistance(const AActor& CandidateActor, const FVector& ViewLocation) const;
+	void ApplyLocalHighlightToActor(AActor& TargetActor, UMaterialInterface& OverlayMaterial, TSet<TWeakObjectPtr<UMeshComponent>>& OutTouchedComponents);
+
+	/** 仅保存本地渲染覆写前的值，确保重生、切图和关闭 Controller 后不污染其他表现系统。 */
+	TMap<TWeakObjectPtr<UMeshComponent>, FSWLocalEnemyHighlightComponentState> OriginalEnemyHighlightComponentStates;
+	float EnemyHighlightRefreshAccumulator = 0.f;
 };

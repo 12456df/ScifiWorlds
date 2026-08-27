@@ -13,6 +13,8 @@
 #include "EnhancedInputComponent.h"
 #include "GameFramework/Controller.h"
 #include "Camera/PlayerCameraManager.h"
+#include "Collision/SWCollisionChannels.h"
+#include "Components/PrimitiveComponent.h"
 #include "GameplayTags/SWGameplayTags.h"
 #include "Input/SWInputConfig.h"
 #include "InputActionValue.h"
@@ -22,6 +24,8 @@
 #include "Player/SWPlayerController.h"
 #include "Player/SWPlayerState.h"
 #include "Net/UnrealNetwork.h"
+#include "Components/SphereComponent.h"
+#include "UI/World/SWTargetHealthBarComponent.h"
 #include "Weapon/SWWeapon.h"
 
 ASWCharacter_Player::ASWCharacter_Player(const FObjectInitializer& ObjectInitializer)
@@ -46,6 +50,22 @@ ASWCharacter_Player::ASWCharacter_Player(const FObjectInitializer& ObjectInitial
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
 
+	auto ConfigureHealthBarRangeProbe = [this](TObjectPtr<USphereComponent>& OutProbe, const TCHAR* Name)
+	{
+		OutProbe = CreateDefaultSubobject<USphereComponent>(Name);
+		OutProbe->SetupAttachment(GetRootComponent());
+		OutProbe->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		OutProbe->SetGenerateOverlapEvents(false);
+		OutProbe->SetCollisionObjectType(SWCollisionChannels::HealthBarRangeProbe);
+		OutProbe->SetCollisionResponseToAllChannels(ECR_Ignore);
+		OutProbe->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+		OutProbe->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Overlap);
+		OutProbe->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
+	};
+	ConfigureHealthBarRangeProbe(HealthBarNearRangeProbe, TEXT("HealthBarNearRangeProbe"));
+	ConfigureHealthBarRangeProbe(HealthBarMiddleRangeProbe, TEXT("HealthBarMiddleRangeProbe"));
+	ConfigureHealthBarRangeProbe(HealthBarFarRangeProbe, TEXT("HealthBarFarRangeProbe"));
+
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = false;
 	PrimaryActorTick.TickGroup = TG_PostPhysics;
@@ -61,6 +81,13 @@ void ASWCharacter_Player::PostInitializeComponents()
 	{
 		SprintStateChangedHandle = MovementComponent->OnSprintingChanged.AddUObject(this, &ThisClass::HandleSprintingChanged);
 	}
+
+	HealthBarNearRangeProbe->OnComponentBeginOverlap.AddUniqueDynamic(this, &ThisClass::HandleHealthBarRangeBeginOverlap);
+	HealthBarNearRangeProbe->OnComponentEndOverlap.AddUniqueDynamic(this, &ThisClass::HandleHealthBarRangeEndOverlap);
+	HealthBarMiddleRangeProbe->OnComponentBeginOverlap.AddUniqueDynamic(this, &ThisClass::HandleHealthBarRangeBeginOverlap);
+	HealthBarMiddleRangeProbe->OnComponentEndOverlap.AddUniqueDynamic(this, &ThisClass::HandleHealthBarRangeEndOverlap);
+	HealthBarFarRangeProbe->OnComponentBeginOverlap.AddUniqueDynamic(this, &ThisClass::HandleHealthBarRangeBeginOverlap);
+	HealthBarFarRangeProbe->OnComponentEndOverlap.AddUniqueDynamic(this, &ThisClass::HandleHealthBarRangeEndOverlap);
 }
 
 void ASWCharacter_Player::BeginPlay()
@@ -79,6 +106,8 @@ void ASWCharacter_Player::BeginPlay()
 			SetLocalSprintCameraShakeActive(MovementComponent->IsSprinting());
 		}
 	}
+
+	ConfigureLocalHealthBarRangeProbes();
 
 	SetActorTickEnabled(false);
 }
@@ -165,6 +194,7 @@ void ASWCharacter_Player::OnRep_PlayerState()
 
 	// 拥有者客户端：PlayerState 复制到位后，执行与服务器一致的绑定。
 	InitAbilityActorInfo();
+	ConfigureLocalHealthBarRangeProbes();
 }
 
 void ASWCharacter_Player::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -410,6 +440,109 @@ bool ASWCharacter_Player::IsAbilityUpgradeModifierDown() const
 {
 	const APlayerController* const PlayerController = Cast<APlayerController>(GetController());
 	return PlayerController && (PlayerController->IsInputKeyDown(EKeys::LeftAlt) || PlayerController->IsInputKeyDown(EKeys::RightAlt));
+}
+
+void ASWCharacter_Player::ConfigureLocalHealthBarRangeProbes()
+{
+	const bool bShouldEnable = IsLocallyControlled() && GetNetMode() != NM_DedicatedServer;
+	const TArray<USphereComponent*> Probes = { HealthBarNearRangeProbe, HealthBarMiddleRangeProbe, HealthBarFarRangeProbe };
+	const TArray<float> Radii = { HealthBarNearRange, HealthBarMiddleRange, HealthBarFarRange };
+
+	for (int32 Index = 0; Index < Probes.Num(); ++Index)
+	{
+		USphereComponent* const Probe = Probes[Index];
+		if (!Probe)
+		{
+			continue;
+		}
+
+		Probe->SetSphereRadius(FMath::Max(1.f, Radii[Index]), true);
+		Probe->SetGenerateOverlapEvents(bShouldEnable);
+		Probe->SetCollisionEnabled(bShouldEnable ? ECollisionEnabled::QueryOnly : ECollisionEnabled::NoCollision);
+	}
+
+	if (!bShouldEnable)
+	{
+		return;
+	}
+
+	// 处理启用范围球前已经位于范围内的目标；之后只依赖 Begin/EndOverlap，不做 Tick 查询。
+	TSet<TWeakObjectPtr<AActor>> InitialOverlaps;
+	for (USphereComponent* const Probe : Probes)
+	{
+		if (!Probe)
+		{
+			continue;
+		}
+
+		TArray<AActor*> OverlappingActors;
+		Probe->GetOverlappingActors(OverlappingActors);
+		for (AActor* const OverlappingActor : OverlappingActors)
+		{
+			InitialOverlaps.Add(OverlappingActor);
+		}
+	}
+
+	for (const TWeakObjectPtr<AActor>& WeakActor : InitialOverlaps)
+	{
+		if (AActor* const OverlappingActor = WeakActor.Get())
+		{
+			RefreshHealthBarRangeForActor(*OverlappingActor);
+		}
+	}
+}
+
+void ASWCharacter_Player::RefreshHealthBarRangeForActor(AActor& CandidateActor) const
+{
+	USWTargetHealthBarComponent* const HealthBarComponent = CandidateActor.FindComponentByClass<USWTargetHealthBarComponent>();
+	if (!HealthBarComponent)
+	{
+		return;
+	}
+
+	const float DistanceSquared = FVector::DistSquared(GetActorLocation(), CandidateActor.GetActorLocation());
+	if (DistanceSquared <= FMath::Square(HealthBarNearRange))
+	{
+		HealthBarComponent->SetLocalAttackerDisplayRangeState(true, 1.f);
+	}
+	else if (DistanceSquared <= FMath::Square(HealthBarMiddleRange))
+	{
+		HealthBarComponent->SetLocalAttackerDisplayRangeState(true, HealthBarMiddleScale);
+	}
+	else if (DistanceSquared <= FMath::Square(HealthBarFarRange))
+	{
+		HealthBarComponent->SetLocalAttackerDisplayRangeState(true, HealthBarFarScale);
+	}
+	else
+	{
+		HealthBarComponent->SetLocalAttackerDisplayRangeState(false);
+	}
+}
+
+void ASWCharacter_Player::HandleHealthBarRangeBeginOverlap(UPrimitiveComponent* const OverlappedComponent, AActor* const OtherActor,
+	UPrimitiveComponent* const OtherComponent, const int32 OtherBodyIndex, const bool bFromSweep, const FHitResult& SweepResult)
+{
+	(void)OverlappedComponent;
+	(void)OtherComponent;
+	(void)OtherBodyIndex;
+	(void)bFromSweep;
+	(void)SweepResult;
+	if (IsLocallyControlled() && IsValid(OtherActor))
+	{
+		RefreshHealthBarRangeForActor(*OtherActor);
+	}
+}
+
+void ASWCharacter_Player::HandleHealthBarRangeEndOverlap(UPrimitiveComponent* const OverlappedComponent, AActor* const OtherActor,
+	UPrimitiveComponent* const OtherComponent, const int32 OtherBodyIndex)
+{
+	(void)OverlappedComponent;
+	(void)OtherComponent;
+	(void)OtherBodyIndex;
+	if (IsLocallyControlled() && IsValid(OtherActor))
+	{
+		RefreshHealthBarRangeForActor(*OtherActor);
+	}
 }
 
 void ASWCharacter_Player::InitAbilityActorInfo()

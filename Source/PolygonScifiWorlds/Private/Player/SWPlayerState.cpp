@@ -6,6 +6,7 @@
 #include "Algo/Count.h"
 #include "AbilitySystem/SWAttributeSet.h"
 #include "Character/SWCharacter_Base.h"
+#include "Components/SceneComponent.h"
 #include "AbilitySystem/Data/SWProgressionData.h"
 #include "Economy/SWEconomyData.h"
 #include "Equipment/SWEquipmentItemDefinition.h"
@@ -13,6 +14,7 @@
 #include "Engine/World.h"
 #include "GameState/SWGameState.h"
 #include "GameplayEffect.h"
+#include "GameplayTags/SWGameplayTags.h"
 #include "Net/UnrealNetwork.h"
 #include "Shop/SWShopZone.h"
 
@@ -111,6 +113,7 @@ void ASWPlayerState::AddExperienceAuthority(const int32 DeltaExperience)
 	if (Level != PreviousLevel)
 	{
 		OnLevelChanged.Broadcast(Level);
+		ExecuteLevelUpGameplayCueAuthority();
 	}
 
 	if (AbilityPointsToGrant > 0)
@@ -128,8 +131,38 @@ void ASWPlayerState::SetLevel(int32 NewLevel)
 
 	const USWProgressionData* ProgressionData = GetProgressionData();
 	const int32 MaximumLevel = ProgressionData ? ProgressionData->GetMaximumLevel() : MAX_int32;
+	const int32 PreviousLevel = Level;
 	Level = FMath::Clamp(NewLevel, 1, MaximumLevel);
-	OnLevelChanged.Broadcast(Level);
+	if (Level != PreviousLevel)
+	{
+		OnLevelChanged.Broadcast(Level);
+		ExecuteLevelUpGameplayCueAuthority();
+	}
+}
+
+void ASWPlayerState::ExecuteLevelUpGameplayCueAuthority()
+{
+	if (!HasAuthority() || !AbilitySystemComponent)
+	{
+		return;
+	}
+
+	AActor* const AvatarActor = AbilitySystemComponent->GetAvatarActor();
+	if (!AvatarActor)
+	{
+		// Avatar 尚未绑定时不补播历史升级特效；等级复制仍是唯一真值。
+		return;
+	}
+
+	FGameplayCueParameters CueParameters;
+	CueParameters.Location = AvatarActor->GetActorLocation();
+	CueParameters.Instigator = AvatarActor;
+	CueParameters.EffectCauser = AvatarActor;
+	CueParameters.SourceObject = this;
+	CueParameters.TargetAttachComponent = AvatarActor->GetRootComponent();
+	CueParameters.bReplicateLocationWhenUsingMinimalRepProxy = true;
+
+	AbilitySystemComponent->ExecuteGameplayCue(SWGameplayTags::GameplayCue_Player_LevelUp, CueParameters);
 }
 
 const USWProgressionData* ASWPlayerState::GetProgressionData() const

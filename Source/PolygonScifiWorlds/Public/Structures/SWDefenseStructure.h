@@ -22,6 +22,7 @@ class USWAbilitySystemComponent;
 class USWAttributeSet;
 class USWStructureDefinition;
 class USWStructureTargetingComponent;
+class USWTargetHealthBarComponent;
 
 /**
  * 防御塔与水晶共用的静态、可复制战斗实体。
@@ -96,6 +97,13 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Structure|Components")
 	UStaticMeshComponent* GetStructureMesh() const { return StructureMesh; }
 
+	/**
+	 * 仅本地表现的目标头顶血条锚点。它复用角色的同一组件和同一个 WBP，
+	 * 可见性只在造成实际伤害的玩家客户端短暂显示。
+	 */
+	UFUNCTION(BlueprintPure, Category = "UI|Target Health Bar")
+	USWTargetHealthBarComponent* GetTargetHealthBarComponent() const { return TargetHealthBarComponent; }
+
 	/** 供后续 TargetingComponent 使用的服务器战斗范围组件。 */
 	UFUNCTION(BlueprintPure, Category = "Structure|Combat")
 	USphereComponent* GetCombatRange() const { return CombatRange; }
@@ -119,6 +127,9 @@ protected:
 
 	/** 仅服务器调用：按 StructureDefinition 的 CombatantDefinition 应用启动 GE。 */
 	void ApplyInitializationEffectsAuthority();
+
+	/** 仅服务器首个塔死亡提交调用：向最后一击的敌方玩家结算此塔配置的经验与金币。 */
+	void GrantDeathRewardsAuthority(const FSWDeathContext& DeathContext);
 
 	/** 仅服务器调用：授予一次由 Definition 指定的结构攻击 Ability。 */
 	void GrantAttackAbilityAuthority();
@@ -185,6 +196,13 @@ protected:
 	 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Structure|Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UStaticMeshComponent> StructureMesh;
+
+	/**
+	 * 目标头顶血条的世界锚点。WidgetClass、尺寸和相对于每种塔模型的高度由蓝图子类配置；
+	 * 它不复制任何 UI 可见性或生命真值。
+	 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI|Target Health Bar", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USWTargetHealthBarComponent> TargetHealthBarComponent;
 
 	/** 仅服务器 QueryOnly 的候选范围；具体 Profile 在蓝图/项目碰撞配置阶段设置。 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Structure|Components", meta = (AllowPrivateAccess = "true"))

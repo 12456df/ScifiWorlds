@@ -51,7 +51,8 @@ void USWMinionSeparationProcessor::Execute(FMassEntityManager& EntityManager, FM
 {
 	TArray<SWMinionSeparation::FEntry> Entries;
 	float MaxCollisionRadius = 0.f;
-	EntityQuery.ForEachEntityChunk(Context, [&Entries, &MaxCollisionRadius](FMassExecutionContext& ChunkContext)
+	float MaxSameTeamSeparationMultiplier = 1.f;
+	EntityQuery.ForEachEntityChunk(Context, [&Entries, &MaxCollisionRadius, &MaxSameTeamSeparationMultiplier](FMassExecutionContext& ChunkContext)
 	{
 		const FSWMinionArchetypeSharedFragment& Archetype = ChunkContext.GetConstSharedFragment<FSWMinionArchetypeSharedFragment>();
 		const TConstArrayView<FTransformFragment> Transforms = ChunkContext.GetFragmentView<FTransformFragment>();
@@ -75,6 +76,7 @@ void USWMinionSeparationProcessor::Execute(FMassEntityManager& EntityManager, FM
 			Entry.CollisionRadius = CollisionRadius;
 			Entry.SameTeamSeparationMultiplier = FMath::Max(1.f, Archetype.SameTeamSeparationMultiplier);
 			MaxCollisionRadius = FMath::Max(MaxCollisionRadius, CollisionRadius);
+			MaxSameTeamSeparationMultiplier = FMath::Max(MaxSameTeamSeparationMultiplier, Entry.SameTeamSeparationMultiplier);
 		}
 	});
 
@@ -84,7 +86,9 @@ void USWMinionSeparationProcessor::Execute(FMassEntityManager& EntityManager, FM
 	}
 
 	// 与全局 O(N^2) 检查相比，二维格仅检查相邻 3x3 格。首版波次规模下仍会跨 Chunk 正确工作。
-	const float CellSize = MaxCollisionRadius * 2.f * 1.15f;
+	// 格边长必须覆盖当前配置的最大同队期望间距；否则倍率高于默认值时，
+	// 相邻但跨出固定 1.15 倍格范围的单位会被漏检，造成“配置已提高但未完全分散”。
+	const float CellSize = MaxCollisionRadius * 2.f * MaxSameTeamSeparationMultiplier;
 	TArray<FVector2D> ResolvedLocations;
 	ResolvedLocations.Reserve(Entries.Num());
 	for (const SWMinionSeparation::FEntry& Entry : Entries)
