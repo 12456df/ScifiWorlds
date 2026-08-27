@@ -14,4 +14,6 @@ namespace SWCollisionChannels
 	constexpr ECollisionChannel Projectile = ECC_GameTraceChannel2;
 	constexpr ECollisionChannel ShieldBarrier = ECC_GameTraceChannel3;
 	constexpr ECollisionChannel StructureProjectile = ECC_GameTraceChannel4;
+	/** 仅本地玩家头顶血条范围探测使用；默认忽略，避免与关卡碰撞产生无关 Overlap。 */
+	constexpr ECollisionChannel HealthBarRangeProbe = ECC_GameTraceChannel5;
 }

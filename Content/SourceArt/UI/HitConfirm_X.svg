@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- White is intentional: the UMG Image tint supplies the runtime red colour. -->
+  <!-- Four solid arms with a transparent centre gap, like a crosshair but X-shaped. -->
+  <g fill="none" stroke="#FFFFFF" stroke-width="22" stroke-linecap="square">
+    <path d="M92 92 L224 224"/>
+    <path d="M288 288 L420 420"/>
+    <path d="M420 92 L288 224"/>
+    <path d="M224 288 L92 420"/>
+  </g>
+</svg>

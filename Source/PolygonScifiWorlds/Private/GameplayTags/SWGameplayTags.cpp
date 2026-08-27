@@ -31,6 +31,8 @@ namespace SWGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Cooldown_Ability_PortalSphere, "Cooldown.Ability.PortalSphere", "PortalSphere 冷却状态。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Skill_Shield, "Ability.Skill.Shield", "Shield 主动技能身份。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Cooldown_Ability_Shield, "Cooldown.Ability.Shield", "Shield 冷却状态。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Skill_AoeBuff, "Ability.Skill.AoeBuff", "以施法者为中心、按敌我施加不同状态效果的主动技能身份。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Cooldown_Ability_AoeBuff, "Cooldown.Ability.AoeBuff", "AoeBuff 冷却/充能状态。");
 
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Weapon_Fire, "Ability.Weapon.Fire", "开火能力身份。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Weapon_Aim, "Ability.Weapon.Aim", "瞄准能力身份。");
@@ -47,6 +49,7 @@ namespace SWGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Weapon_ProjectileImpact, "Event.Weapon.ProjectileImpact", "弹丸权威命中事件。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Ability_PortalSphere_Spawn, "Event.Ability.PortalSphere.Spawn", "PortalSphere 施法动作生成弹体事件。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Ability_Shield_Spawn, "Event.Ability.Shield.Spawn", "Shield 施法动作生成屏障事件。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Ability_AoeBuff_Apply, "Event.Ability.AoeBuff.Apply", "AoeBuff 施法 Montage 到达结算帧事件。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Weapon_Fire, "GameplayCue.Weapon.Fire", "开火纯表现 Cue。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Weapon_Reload, "GameplayCue.Weapon.Reload", "换弹纯表现 Cue。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Projectile_Impact, "GameplayCue.Projectile.Impact", "弹丸命中纯表现 Cue。");
@@ -65,8 +68,14 @@ namespace SWGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Ability_Cooldown, "SetByCaller.Ability.Cooldown", "主动技能提交时写入的冷却时长。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Ability_ManaCost, "SetByCaller.Ability.ManaCost", "主动技能提交时写入的 Mana 消耗。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Ability_Duration, "SetByCaller.Ability.Duration", "主动技能提交时写入的持续时间。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Buff_MovementSpeedDelta, "SetByCaller.Buff.MovementSpeedDelta", "加速 Buff 对 MovementSpeedMultiplier 的加法增量。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Buff_HealthPerSecond, "SetByCaller.Buff.HealthPerSecond", "持续回血 Buff 每个周期恢复的生命值。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Dead, "State.Dead", "单位已死亡。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Invulnerable, "State.Invulnerable", "单位暂时免疫伤害。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Buff_Speed, "State.Buff.Speed", "单位正受到加速 Buff 影响。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Buff_Heal, "State.Buff.Heal", "单位正受到 Heal Buff 影响。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Debuff_Stunned, "State.Debuff.Stunned", "首版眩晕 Debuff 的表现协议；当前无眩晕动作，因此实际效果为减速，不阻断移动或技能。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Debuff_Poisoned, "State.Debuff.Poisoned", "单位正受到中毒持续伤害影响。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Behavior_SurviveDeath, "Ability.Behavior.SurviveDeath", "死亡时不应被取消的能力。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Combat_DamageResolved, "Event.Combat.DamageResolved", "一次伤害结算完成事件。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Combat_Death, "Event.Combat.Death", "服务器确认死亡事件。");
@@ -75,4 +84,10 @@ namespace SWGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Combat_StructureAttack, "Event.Combat.StructureAttack", "服务器防御结构攻击目标事件。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Combat_Hit, "GameplayCue.Combat.Hit", "受击纯表现 Cue。");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Combat_Death, "GameplayCue.Combat.Death", "死亡纯表现 Cue。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Player_LevelUp, "GameplayCue.Player.LevelUp", "玩家等级提升的一次性世界表现 Cue。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Buff_Speed, "GameplayCue.Buff.Speed", "加速 Buff 的持续表现 Cue。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Buff_Heal, "GameplayCue.Buff.Heal", "Heal Buff 的持续表现 Cue。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Debuff_Stun, "GameplayCue.Debuff.Stun", "眩晕 Debuff 的持续表现 Cue。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Debuff_Poison, "GameplayCue.Debuff.Poison", "中毒 Debuff 的持续表现 Cue。");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Ability_AoeBuff_Cast, "GameplayCue.Ability.AoeBuff.Cast", "AoeBuff 在施法者位置执行的一次性范围施法表现 Cue。");
 }

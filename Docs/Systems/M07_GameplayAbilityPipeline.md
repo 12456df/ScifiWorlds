@@ -71,6 +71,12 @@ M07 的目标是在不创建第二套输入、进度或战斗系统的前提下�
 
 ## 4. C++ 与蓝图边界
 
+### 4.1 后续通用状态效果补充（2026-08-26）
+
+四类可被任意主动技能复用的状态效果使用原生 C++ GE 基类：加速、Heal、眩晕和中毒。C++ 固定持续时间 SetByCaller、状态 Tag、属性/周期伤害通道；首版眩晕因尚无可读的受控动作，保留 `State.Debuff.Stunned` 作为表现协议，但实际写入负的移动速度修正，不阻断移动或 Ability。具体时长、数值、叠层策略细节和 Gameplay Cue 均由各技能的 GE 蓝图子类配置。中毒继续使用统一 Damage ExecCalc，并通过施法 Avatar/SourceObject 解析攻击者客户端，从而复用法术伤害飘字，不创建绕过护甲、无敌、死亡和队伍校验的第二套 DOT 逻辑。
+
+`USWAoeBuffGameplayAbility` 是这些效果的首个组合使用者：服务器以施法者为圆心的半球 Overlap 查询 Pawn，友军应用加速/Heal，敌军应用眩晕/中毒。它的固定身份为 `Ability.Skill.AoeBuff`；Montage 在 `Event.Ability.AoeBuff.Apply` 帧通过服务器 Anim Notify 请求结算，服务器结算前执行一次 `GameplayCue.Ability.AoeBuff.Cast`，Cue Location 为施法者位置、RawMagnitude 为已计算半径，供蓝图 GameplayCue 在所有相关客户端生成一次性 Niagara。半球半径和时长继续经过 AttributeSet 的范围/时长修正；Heal 每秒数值按施法者当前 Health 求值，中毒每跳按施法者 SpellPower 求值。
+
 | 领域 | C++ 负责 | 蓝图/资产负责 |
 |---|---|---|
 | Ability 身份与授予 | Ability Id、Input Tag、Spec Level、幂等授予、服务器升级事务 | 在角色 Blueprint 的 `StartupAbilities` 配置两个首发技能类；Skill3 保持空槽 |

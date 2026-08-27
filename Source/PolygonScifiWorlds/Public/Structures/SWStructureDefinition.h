@@ -23,7 +23,7 @@ class POLYGONSCIFIWORLDS_API USWStructureDefinition : public UDataAsset
 	GENERATED_BODY()
 
 public:
-	/** 复用既有战斗单位初始化、资源与奖励定义；结构首版应使用零奖励配置。 */
+	/** 复用既有战斗单位初始化、资源与奖励定义；防御塔死亡时读取其中的经验与金币曲线。 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Structure|Initialization")
 	TObjectPtr<USWCombatantDefinition> CombatantDefinition;
 

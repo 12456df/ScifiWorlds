@@ -164,6 +164,12 @@ protected:
 	/** 返回由已复制 GameState 暴露的本局成长配置；只在服务器写入路径中消费。 */
 	const class USWProgressionData* GetProgressionData() const;
 
+	/**
+	 * 仅服务器在等级实际提高且 Avatar 有效时调用。
+	 * Cue 只承载跨客户端的升级特效，不参与等级、经验或技能点结算。
+	 */
+	void ExecuteLevelUpGameplayCueAuthority();
+
 	UPROPERTY(VisibleAnywhere, Category = "SW|GAS")
 	TObjectPtr<USWAbilitySystemComponent> AbilitySystemComponent;
 

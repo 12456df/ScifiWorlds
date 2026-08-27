@@ -5,6 +5,7 @@
 #include "AbilitySystem/SWAbilityTypes.h"
 #include "AbilitySystem/SWAbilitySystemComponent.h"
 #include "GameFramework/Pawn.h"
+#include "GameFramework/PlayerState.h"
 #include "GameplayEffectExtension.h"
 #include "Interaction/SWCombatInterface.h"
 #include "Interaction/SWPlayerProgressionInterface.h"
@@ -12,6 +13,53 @@
 #include "Player/SWPlayerController.h"
 #include "UI/DamageNumber/SWDamageNumberTypes.h"
 #include "GameplayTags//SWGameplayTags.h"
+
+namespace
+{
+	ASWPlayerController* ResolveDamageSourcePlayerController(const FGameplayEffectContextHandle& EffectContext)
+	{
+		auto ResolveFromActor = [](AActor* const Actor) -> ASWPlayerController*
+		{
+			if (APawn* const Pawn = Cast<APawn>(Actor))
+			{
+				return Cast<ASWPlayerController>(Pawn->GetController());
+			}
+
+			if (APlayerState* const PlayerState = Cast<APlayerState>(Actor))
+			{
+				return Cast<ASWPlayerController>(PlayerState->GetPlayerController());
+			}
+
+			return Cast<ASWPlayerController>(Actor);
+		};
+
+		// Player ASC 由 PlayerState 持有，而 Avatar 是 Character。优先使用 EffectCauser/SourceObject，
+		// 才能让持续伤害和瞬时武器伤害都定位到实际施法者客户端。
+		if (ASWPlayerController* const Controller = ResolveFromActor(EffectContext.GetEffectCauser()))
+		{
+			return Controller;
+		}
+		if (ASWPlayerController* const Controller = ResolveFromActor(Cast<AActor>(EffectContext.GetSourceObject())))
+		{
+			return Controller;
+		}
+		if (ASWPlayerController* const Controller = ResolveFromActor(EffectContext.GetOriginalInstigator()))
+		{
+			return Controller;
+		}
+
+		if (const UAbilitySystemComponent* const SourceASC = EffectContext.GetOriginalInstigatorAbilitySystemComponent())
+		{
+			if (ASWPlayerController* const Controller = ResolveFromActor(SourceASC->GetAvatarActor()))
+			{
+				return Controller;
+			}
+			return ResolveFromActor(SourceASC->GetOwnerActor());
+		}
+
+		return nullptr;
+	}
+}
 
 USWAttributeSet::USWAttributeSet()
 {
@@ -211,17 +259,20 @@ void USWAttributeSet::ConsumeIncomingDamage(const FGameplayEffectModCallbackData
 	}
 
 	AActor* const TargetAvatar = Data.Target.GetAvatarActor();
-	if (APawn* const InstigatorPawn = Cast<APawn>(EffectContext.GetOriginalInstigator()))
+	if (ASWPlayerController* const SourcePlayerController = ResolveDamageSourcePlayerController(EffectContext))
 	{
-		if (ASWPlayerController* const SourcePlayerController = Cast<ASWPlayerController>(InstigatorPawn->GetController()))
+		FSWDamageNumberPayload Payload;
+		Payload.AppliedDamage = AppliedDamage;
+		Payload.DamageType = SWContext ? SWContext->GetDamageType() : FGameplayTag();
+		Payload.bCritical = SWContext && SWContext->IsCriticalHit();
+		Payload.TargetActor = TargetAvatar;
+		Payload.WorldLocation = TargetAvatar ? TargetAvatar->GetActorLocation() : TargetOwner->GetActorLocation();
+		SourcePlayerController->ClientShowDamageNumber(Payload);
+
+		// 仅向实际攻击者所属客户端显示目标头顶血条；不把这一纯表现状态复制给旁观者。
+		if (TargetAvatar)
 		{
-			FSWDamageNumberPayload Payload;
-			Payload.AppliedDamage = AppliedDamage;
-			Payload.DamageType = SWContext ? SWContext->GetDamageType() : FGameplayTag();
-			Payload.bCritical = SWContext && SWContext->IsCriticalHit();
-			Payload.TargetActor = TargetAvatar;
-			Payload.WorldLocation = TargetAvatar ? TargetAvatar->GetActorLocation() : TargetOwner->GetActorLocation();
-			SourcePlayerController->ClientShowDamageNumber(Payload);
+			SourcePlayerController->ClientShowDamagedTargetHealthBar(TargetAvatar);
 		}
 	}
 

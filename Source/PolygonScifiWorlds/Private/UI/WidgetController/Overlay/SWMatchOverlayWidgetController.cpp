@@ -29,7 +29,9 @@ void USWMatchOverlayWidgetController::BindCallbacksToDependencies()
 
 void USWMatchOverlayWidgetController::BeginDestroy()
 {
-	UnbindCallbacks();
+	// BeginDestroy 发生在 GC 期间，World 的 OwningGameInstance 可能已经进入清理，
+	// 因此这里只解除委托，不再经由 GameState 访问 WorldTimerManager。
+	UnbindCallbacks(false);
 	Super::BeginDestroy();
 }
 
@@ -54,9 +56,9 @@ void USWMatchOverlayWidgetController::BroadcastMatchOverlay()
 	OnMatchOverlayChanged.Broadcast(Snapshot);
 }
 
-void USWMatchOverlayWidgetController::UnbindCallbacks()
+void USWMatchOverlayWidgetController::UnbindCallbacks(const bool bClearElapsedTimeTimer)
 {
-	if (GameState)
+	if (bClearElapsedTimeTimer && GameState)
 	{
 		GameState->GetWorldTimerManager().ClearTimer(ElapsedTimeRefreshTimer);
 	}

@@ -11,6 +11,7 @@ class UMeshComponent;
 class USkeletalMeshComponent;
 class UStaticMeshComponent;
 struct FOnAttributeChangeData;
+struct FGameplayCueParameters;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FSWOnWeaponAmmoChanged, int32, MagazineAmmo);
 
@@ -46,6 +47,10 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Weapon")
 	bool IsAutomatic() const { return WeaponConfig.bAutomatic; }
+
+	/** 返回当前武器权威瞄准射线的最大距离；本地纯表现可读取，但不得据此决定伤害。 */
+	UFUNCTION(BlueprintPure, Category = "Weapon")
+	float GetMaxAimDistance() const { return WeaponConfig.MaxAimDistance; }
 
 	/**
 	 * 由首个有效 FireCycle Section 的实际时长及当前射速属性推导的有效 RPM。
@@ -123,7 +128,11 @@ private:
 	void ResolveHitscanAuthority(APawn* OwnerPawn, const FVector& TraceStart, const FVector& TraceEnd, const FSWDamageApplicationParams& DamageParams, FSWResolvedShot& InOutResult);
 	bool ApplyDamageEffectAuthority(AActor* HitActor, const FSWDamageApplicationParams& DamageParams);
 	void BroadcastAmmoChanged();
-	void ExecuteOwnerGameplayCue(FGameplayTag CueTag) const;
+	/**
+	 * 仅服务器在已确认的射击后调用；将统一的枪口表现参数交给 ASC 的 GameplayCue 通道。
+	 * Cue 只负责客户端表现，不能反向修改弹药、伤害或命中状态。
+	 */
+	void ExecuteOwnerGameplayCue(FGameplayTag CueTag, const FGameplayCueParameters& CueParameters) const;
 	void BindMagazineCapacityMultiplierAuthority();
 	void HandleMagazineCapacityMultiplierChanged(const FOnAttributeChangeData& ChangeData);
 

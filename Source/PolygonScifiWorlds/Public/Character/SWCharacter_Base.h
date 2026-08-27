@@ -12,6 +12,7 @@
 class UAbilitySystemComponent;
 class USWAttributeSet;
 class USWCombatantDefinition;
+class USWTargetHealthBarComponent;
 
 /**
  * ScifiWorlds 所有角色的抽象基类。
@@ -49,6 +50,13 @@ public:
 	/** 死亡是否已由服务器提交；用于动画、UI 等只读表现查询。 */
 	UFUNCTION(BlueprintPure, Category = "Combat")
 	bool IsDeadCommitted() const { return bDead; }
+
+	/**
+	 * 所有角色共用的头顶血条锚点。它仅在实际攻击者本地显示，
+	 * 不复制可见性，也不属于生命值或战斗规则真值。
+	 */
+	UFUNCTION(BlueprintPure, Category = "UI|Target Health Bar")
+	USWTargetHealthBarComponent* GetTargetHealthBarComponent() const { return TargetHealthBarComponent; }
 
 	/** 仅服务器调用：对新生成的 Pawn 应用其战斗配置指定的重生无敌 GE。 */
 	void ApplyRespawnInvulnerabilityEffectAuthority();
@@ -93,6 +101,10 @@ protected:
 
 	UPROPERTY()
 	TObjectPtr<USWAttributeSet> AttributeSet;
+
+	/** 头顶血条的世界空间锚点；具体 WidgetClass 与外观由 Character 蓝图配置。 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI|Target Health Bar", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USWTargetHealthBarComponent> TargetHealthBarComponent;
 
 	/** 仅服务器广播；死亡后的经验、比分和重生由后续协调层订阅。 */
 	FSWOnDeath OnDeath;

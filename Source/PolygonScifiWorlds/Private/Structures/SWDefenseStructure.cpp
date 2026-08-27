@@ -4,8 +4,10 @@
 
 #include "AbilitySystem/SWAbilitySystemComponent.h"
 #include "AbilitySystem/SWAttributeSet.h"
+#include "AbilitySystem/SWGameplayEffect.h"
 #include "AI/Structures/SWStructureAIController.h"
 #include "AbilitySystem/Data/SWCombatantDefinition.h"
+#include "Collision/SWCollisionChannels.h"
 #include "Components/SceneComponent.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -15,10 +17,12 @@
 #include "GameplayTagContainer.h"
 #include "GameplayTags/SWGameplayTags.h"
 #include "Net/UnrealNetwork.h"
+#include "Player/SWPlayerState.h"
 #include "Structures/SWStructureDefinition.h"
 #include "Structures/SWStructureObjectiveSubsystem.h"
 #include "Structures/SWStructureTargetingComponent.h"
 #include "Combat/Targeting/SWCombatTargetRegistrySubsystem.h"
+#include "UI/World/SWTargetHealthBarComponent.h"
 
 ASWDefenseStructure::ASWDefenseStructure()
 {
@@ -39,6 +43,13 @@ ASWDefenseStructure::ASWDefenseStructure()
 	StructureMesh->SetupAttachment(StructureRoot);
 	// 没有自定义 Structure Profile 前，先以标准静态阻挡体作为角色移动、武器命中和塔火球的共同受击 Primitive。
 	StructureMesh->SetCollisionProfileName(TEXT("BlockAll"));
+	// 仅对本地玩家血条范围球产生 Query Overlap；不改变结构的物理阻挡和武器受击行为。
+	StructureMesh->SetCollisionResponseToChannel(SWCollisionChannels::HealthBarRangeProbe, ECR_Overlap);
+	StructureMesh->SetGenerateOverlapEvents(true);
+
+	// 与角色复用同一套本地受击血条逻辑。塔模型高度不统一，具体 Z 轴位置由蓝图子类设置。
+	TargetHealthBarComponent = CreateDefaultSubobject<USWTargetHealthBarComponent>(TEXT("TargetHealthBarComponent"));
+	TargetHealthBarComponent->SetupAttachment(StructureMesh);
 
 	AttackOrigin = CreateDefaultSubobject<USceneComponent>(TEXT("AttackOrigin"));
 	AttackOrigin->SetupAttachment(StructureMesh);
@@ -208,10 +219,61 @@ bool ASWDefenseStructure::TryCommitDeathAuthority(const FSWDeathContext& DeathCo
 	SurviveDeathTags.AddTag(SWGameplayTags::Ability_Behavior_SurviveDeath);
 	AbilitySystemComponent->CancelAbilities(nullptr, &SurviveDeathTags);
 
+	GrantDeathRewardsAuthority(DeathContext);
 	OnDeath.Broadcast(DeathContext);
 	ApplyDeathStatePresentation();
 	ForceNetUpdate();
 	return true;
+}
+
+void ASWDefenseStructure::GrantDeathRewardsAuthority(const FSWDeathContext& DeathContext)
+{
+	const USWCombatantDefinition* const CombatantDefinition = StructureDefinition
+		? StructureDefinition->CombatantDefinition
+		: nullptr;
+	if (!HasAuthority() || StructureKind != ESWStructureKind::Tower
+		|| !AbilitySystemComponent || !CombatantDefinition || !DeathContext.InstigatorActor)
+	{
+		return;
+	}
+
+	const IAbilitySystemInterface* const KillerAbilitySystemInterface = Cast<IAbilitySystemInterface>(DeathContext.InstigatorActor);
+	USWAbilitySystemComponent* const KillerAbilitySystemComponent = KillerAbilitySystemInterface
+		? Cast<USWAbilitySystemComponent>(KillerAbilitySystemInterface->GetAbilitySystemComponent())
+		: nullptr;
+	if (!KillerAbilitySystemComponent || KillerAbilitySystemComponent == AbilitySystemComponent
+		|| USWGameplayEffect::AreAbilitySystemComponentsOnSameTeam(KillerAbilitySystemComponent, AbilitySystemComponent))
+	{
+		return;
+	}
+
+	// 固定结构首版奖励只归属最后一击玩家；小兵、环境或其他非玩家 ASC 不参与结算。
+	ASWPlayerState* const KillerPlayerState = Cast<ASWPlayerState>(KillerAbilitySystemComponent->GetOwnerActor());
+	if (!KillerPlayerState)
+	{
+		return;
+	}
+
+	const int32 CombatLevel = FMath::Max(1, GetCombatLevel_Implementation());
+	const float ExperienceRewardFloat = CombatantDefinition->XPRewardByLevel.GetValueAtLevel(CombatLevel);
+	if (FMath::IsFinite(ExperienceRewardFloat) && ExperienceRewardFloat > 0.f)
+	{
+		const int32 ExperienceReward = ExperienceRewardFloat >= static_cast<float>(MAX_int32)
+			? MAX_int32
+			: FMath::FloorToInt(ExperienceRewardFloat);
+		KillerAbilitySystemComponent->ApplyExperienceRewardToSelfAuthority(ExperienceReward, this);
+	}
+
+	const float GoldRewardFloat = CombatantDefinition->GoldRewardByLevel.GetValueAtLevel(CombatLevel);
+	if (!FMath::IsFinite(GoldRewardFloat) || GoldRewardFloat <= 0.f)
+	{
+		return;
+	}
+
+	const int32 GoldReward = GoldRewardFloat >= static_cast<float>(MAX_int32)
+		? MAX_int32
+		: FMath::FloorToInt(GoldRewardFloat);
+	KillerPlayerState->GrantGoldAuthority(GoldReward);
 }
 
 ESWTeamId ASWDefenseStructure::GetTeamId() const

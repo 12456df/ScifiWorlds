@@ -10,6 +10,8 @@
 
 class ASWPlayerState;
 class ASWWeapon;
+class UPrimitiveComponent;
+class USphereComponent;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FSWOnCurrentWeaponChanged, ASWWeapon*, NewWeapon);
 
@@ -63,6 +65,34 @@ protected:
 	/** 最终本地视角；不复制 Transform。 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<class UCameraComponent> FollowCamera;
+
+	/**
+	 * 仅所属客户端启用的三档头顶血条范围球。它们只触发已声明为 HealthBarRangeProbe
+	 * 响应对象的角色胶囊和结构网格，不参与服务器战斗或物理碰撞。
+	 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI|Target Health Bar", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USphereComponent> HealthBarNearRangeProbe;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI|Target Health Bar", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USphereComponent> HealthBarMiddleRangeProbe;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI|Target Health Bar", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USphereComponent> HealthBarFarRangeProbe;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Target Health Bar", meta = (AllowPrivateAccess = "true", ClampMin = "1.0", Units = "cm"))
+	float HealthBarNearRange = 800.f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Target Health Bar", meta = (AllowPrivateAccess = "true", ClampMin = "1.0", Units = "cm"))
+	float HealthBarMiddleRange = 1600.f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Target Health Bar", meta = (AllowPrivateAccess = "true", ClampMin = "1.0", Units = "cm"))
+	float HealthBarFarRange = 2500.f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Target Health Bar", meta = (AllowPrivateAccess = "true", ClampMin = "0.1", ClampMax = "1.0"))
+	float HealthBarMiddleScale = 0.75f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Target Health Bar", meta = (AllowPrivateAccess = "true", ClampMin = "0.1", ClampMax = "1.0"))
+	float HealthBarFarScale = 0.55f;
 
 	/** 默认第三人称镜头臂长度；角色蓝图可按具体角色覆盖。 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Hip", meta = (ClampMin = "0.0"))
@@ -125,6 +155,16 @@ private:
 	void HandleSprintingChanged(bool bIsSprinting);
 	void SetLocalSprintCameraShakeActive(bool bActive);
 	bool IsAbilityUpgradeModifierDown() const;
+	void ConfigureLocalHealthBarRangeProbes();
+	void RefreshHealthBarRangeForActor(AActor& CandidateActor) const;
+
+	UFUNCTION()
+	void HandleHealthBarRangeBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
+		UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+	UFUNCTION()
+	void HandleHealthBarRangeEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
+		UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex);
 
 	float HipCameraFOV = 0.f;
 	FVector HipCameraOffset = FVector::ZeroVector;

@@ -2,7 +2,7 @@
 
 **状态：** Completed
 **负责人：** `12456df`
-**最后更新：** 2026-08-23
+**最后更新：** 2026-08-25
 **建议分支：** `codex/m12-m13-structures-match-flow`
 **建议提交：** `feat: add towers and team crystals`
 **依赖：** M05、M10、M11
@@ -42,6 +42,7 @@ M10/M11 已完成服务器权威的三路兵线、小兵目标注册、Mass/Stat
 - FR-12-10：结构推进依赖必须由服务器统一计算；前置结构未毁时，后续塔/水晶保持不可选中和无敌。
 - FR-12-11：小兵必须能通过 M11 目标注册表发现已解锁的敌方结构，并保持“小兵 → 玩家 → 结构”的既有优先级。
 - FR-12-12：塔死亡更新攻击方推塔数并解锁依赖结构；水晶死亡只报告权威目标事件，最终胜负由 M13 GameMode 裁决。
+- FR-12-13：防御塔首次死亡时，仅向造成最后一次有效伤害的敌方玩家结算其 CombatantDefinition 配置的经验与金币；经验经击杀者 ASC 的既有经验入口结算，金币经击杀者 PlayerState 的唯一金币写入入口结算。水晶不发放该奖励。
 
 ### 2.2 Non-Functional
 
@@ -294,6 +295,7 @@ FSWDamageReceptionResult
 4. 不可 Vulnerable 的结构实现 `ISWTargetableInterface` 并返回 false，同时 ASC 持有 `State.Invulnerable`。
 5. 塔死亡向 GameMode 报告“摧毁方 TeamId”，更新其 `TowerDestroyCount`。
 6. 水晶死亡向 GameMode 报告“被摧毁方 TeamId”；M13 在下一服务器 Tick 统一裁决。
+7. 防御塔的首次死亡提交根据 `DeathContext.InstigatorActor` 找到最后一击玩家；若其是有效敌方 ASC，读取该塔 `CombatantDefinition` 的 `XPRewardByLevel`、`GoldRewardByLevel` 并结算。水晶不发放该奖励。无来源、自杀、同队来源、无效曲线或非玩家来源不奖励；不实现团队分成、助攻或地图目标全队奖励。
 
 `bVulnerable` 只控制该结构能否被敌方选中和受伤，不关闭它自己的防守攻击；因此尚未解锁的内层塔/水晶仍会攻击进入其范围的敌方单位。若未来希望某类目标在解锁前完全休眠，应增加独立的 `bDefenseEnabled` 规则，不能复用 Vulnerable 含义。
 
@@ -351,6 +353,7 @@ FSWDamageReceptionResult
 - 2026-08-23：新增 `sw.Structure.Diagnostics` 服务器/Standalone 只读诊断命令。它列出已注册结构的 Actor 名称、StructureId、队伍、类型、路线、前置关系、死亡状态与 `Vulnerable` 状态，并同时输出结构图是否通过验证及验证错误；该命令不改写推进、属性或目标状态。
 - 2026-08-23：补齐步骤 9 的防御塔死亡报告。目标子系统只在结构首次死亡、结构图有效且服务器确认后，依据 `FSWDeathContext::InstigatorActor` 的 `ISWTeamInterface` 队伍真值向 GameMode 报告摧毁方；来源为空、无队伍或与塔同队时不计分并记录警告。水晶继续只报告被摧毁方，由 M13 的 GameMode 在下一服务器 Tick 统一裁决胜负。
 - 2026-08-23：用户已完成 Dedicated Server 构建与双客户端验证：结构图解锁、结构攻击、伤害接收、塔计分、水晶摧毁与胜负链路均由服务器权威运行；M12 完成。
+- 2026-08-25：防御塔首次死亡提交接入奖励结算。`ASWDefenseStructure` 仅在 `StructureKind == Tower` 时读取自身 `StructureDefinition -> CombatantDefinition` 的 XP/Gold 曲线，以 `DeathContext.InstigatorActor` 的 ASC 复核敌我后，仅向最后一击玩家结算；经验复用 `ApplyExperienceRewardToSelfAuthority`，金币复用 `ASWPlayerState::GrantGoldAuthority`，不新增客户端写入或独立金币旁路；水晶不发放该奖励。
 
 ## 13. 需求追踪与验收
 
